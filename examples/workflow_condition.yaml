@@ -1,0 +1,58 @@
+# 条件分支工作流配置示例
+
+workflow:
+  name: "条件判断和分支处理"
+  description: "根据条件选择不同的处理分支"
+  version: "1.0.0"
+  
+  nodes:
+    # 起始节点
+    - id: "start"
+      type: "start"
+      name: "开始"
+      data:
+        temperature: 25
+        humidity: 60
+        location: "北京"
+    
+    # 条件判断节点
+    - id: "check_temperature"
+      type: "condition"
+      name: "检查温度"
+      description: "根据温度决定处理方式"
+      inputs:
+        - "start"
+      conditions:
+        - branch: "hot"
+          expression: "temperature > 30"
+        - branch: "cold"
+          expression: "temperature < 10"
+        - branch: "comfortable"
+          expression: "temperature >= 10 and temperature <= 30"
+      default_branch: "unknown"
+    
+    # 数据转换节点：处理结果
+    - id: "process_result"
+      type: "transform"
+      name: "处理结果"
+      description: "根据条件结果添加建议"
+      inputs:
+        - "check_temperature"
+      operation: "custom"
+      config:
+        expression: |
+          {
+            'branch': data['branch'],
+            'temperature': data['data']['temperature'],
+            'location': data['data']['location'],
+            'advice': '天气炎热，注意防暑' if data['branch'] == 'hot' else 
+                     ('天气寒冷，注意保暖' if data['branch'] == 'cold' else '天气舒适，适合出行')
+          }
+    
+    # 输出节点
+    - id: "output"
+      type: "output"
+      name: "输出建议"
+      inputs:
+        - "process_result"
+      format: "json"
