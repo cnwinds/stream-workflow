@@ -11,6 +11,9 @@
 - 🎯 **条件分支**: 支持基于条件的流程分支
 - 🔍 **执行日志**: 详细的执行日志和错误追踪
 - 🛠️ **内置节点**: 提供常用的节点类型（HTTP请求、数据转换、条件判断等）
+- 🌊 **流式处理**: 支持实时音频/视频流、WebSocket 实时通信（新增）
+- 🔗 **多端口连接**: 参数级精确连接，自动类型验证（新增）
+- ⚡ **异步并发**: 基于 asyncio 的高性能异步执行（新增）
 
 ## 📦 安装
 
@@ -298,6 +301,113 @@ engine.register_node_type('my_custom', MyCustomNode)
   param2: "value2"
 ```
 
+## 🌊 流式处理（新增）
+
+### 什么是流式处理？
+
+流式处理允许数据以小块（chunk）的形式增量传输和处理，适用于：
+- 实时音频/视频处理
+- WebSocket 实时通信
+- 大文件分块处理
+- 低延迟场景
+
+### 流式工作流示例
+
+```yaml
+workflow:
+  name: "语音对话流程"
+  nodes:
+    - id: "vad"
+      type: "vad_node"
+      config:
+        threshold: 0.5
+    
+    - id: "asr"
+      type: "asr_node"
+      config:
+        model: "whisper"
+    
+    - id: "agent"
+      type: "agent_node"
+      config:
+        model: "gpt-4"
+    
+    - id: "tts"
+      type: "tts_node"
+      config:
+        voice: "zh-CN-XiaoxiaoNeural"
+  
+  # 参数级连接 - 引擎自动验证类型匹配
+  connections:
+    - from: "vad.audio_stream"
+      to: "asr.audio_in"
+    - from: "asr.text_stream"
+      to: "agent.text_input"
+    - from: "agent.response_text"
+      to: "tts.text_input"
+```
+
+### 运行流式示例
+
+```python
+import asyncio
+from workflow_engine import WorkflowEngine
+from workflow_engine.nodes import auto_register_nodes
+
+async def main():
+    engine = WorkflowEngine()
+    auto_register_nodes(engine)
+    
+    engine.load_config('workflow_streaming.yaml')
+    context = await engine.execute_async()
+
+asyncio.run(main())
+```
+
+### 开发流式节点
+
+```python
+from workflow_engine.core import Node, ParameterSchema, StreamChunk, register_node
+import asyncio
+
+@register_node('my_stream_node')
+class MyStreamNode(Node):
+    # 定义参数结构
+    INPUT_PARAMS = {
+        "stream_in": ParameterSchema(
+            is_streaming=True,
+            schema={"data": "bytes", "timestamp": "float"}
+        )
+    }
+    
+    OUTPUT_PARAMS = {
+        "stream_out": ParameterSchema(
+            is_streaming=True,
+            schema={"data": "bytes", "processed": "boolean"}
+        )
+    }
+    
+    async def execute_async(self, context):
+        """初始化（持续运行）"""
+        context.log("流式节点启动")
+        await asyncio.sleep(float('inf'))
+    
+    async def on_chunk_received(self, param_name, chunk: StreamChunk):
+        """处理输入 chunk"""
+        if param_name == "stream_in":
+            # 处理数据
+            data = chunk.data["data"]
+            processed_data = self._process(data)
+            
+            # 发送输出 chunk
+            await self.emit_chunk("stream_out", {
+                "data": processed_data,
+                "processed": True
+            })
+```
+
+详细开发指南请参考：[节点开发指南](docs/NODE_DEVELOPMENT_GUIDE.md)
+
 ## 📖 完整示例
 
 查看 `examples/` 目录下的完整示例：
@@ -306,7 +416,9 @@ engine.register_node_type('my_custom', MyCustomNode)
 - `workflow_http.yaml` - HTTP API调用和数据处理
 - `workflow_condition.yaml` - 条件判断和分支
 - `workflow_complex.yaml` - 复杂的多节点协作流程
+- `workflow_streaming.yaml` - 流式音视频处理流程（新增）
 - `run_example.py` - 运行所有示例的脚本
+- `run_streaming_example.py` - 运行流式示例（新增）
 
 ## 🏗️ 架构设计
 
