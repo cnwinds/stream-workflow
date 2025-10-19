@@ -61,17 +61,28 @@ class ConnectionManager:
     def __init__(self):
         """初始化连接管理器"""
         self._connections: List[Connection] = []
+        # 流式连接和非流式连接分类
+        self._streaming_connections: List[Connection] = []
+        self._data_connections: List[Connection] = []
         # 索引：(source_node, source_param) -> [Connection]
         self._source_index: Dict[Tuple[str, str], List[Connection]] = {}
     
     def add_connection(self, conn: Connection):
         """
-        添加连接
+        添加连接并自动分类
         
         Args:
             conn: 连接对象
         """
         self._connections.append(conn)
+        
+        # 根据 schema 自动判断连接类型
+        if conn.source_schema.is_streaming:
+            self._streaming_connections.append(conn)
+        else:
+            self._data_connections.append(conn)
+        
+        # 建立索引
         if conn.source not in self._source_index:
             self._source_index[conn.source] = []
         self._source_index[conn.source].append(conn)
@@ -90,7 +101,7 @@ class ConnectionManager:
             if conn.is_streaming and conn.target_queue:
                 await conn.target_queue.put(chunk)
     
-    def transfer_value(self, source_node: str, source_param: str, value):
+    def transfer_value(self, source_node: str, source_param: str, value, nodes_dict: dict = None):
         """
         传输非流式数据
         
@@ -98,18 +109,28 @@ class ConnectionManager:
             source_node: 源节点 ID
             source_param: 源参数名称
             value: 数据值
+            nodes_dict: 节点字典（node_id -> Node实例）
         """
         connections = self._source_index.get((source_node, source_param), [])
         for conn in connections:
             if not conn.is_streaming:
                 # 直接设置目标参数的值
-                # 注意：这需要在节点创建后通过引用设置
-                pass
+                # 使用保存的目标参数引用
+                if hasattr(conn, 'target_param_ref') and conn.target_param_ref:
+                    conn.target_param_ref.value = value
     
     def get_connections(self) -> List[Connection]:
         """获取所有连接"""
         return self._connections.copy()
     
+    def get_streaming_connections(self) -> List[Connection]:
+        """获取所有流式连接"""
+        return self._streaming_connections.copy()
+    
+    def get_data_connections(self) -> List[Connection]:
+        """获取所有非流式连接"""
+        return self._data_connections.copy()
+    
     def __repr__(self):
-        return f"ConnectionManager(connections={len(self._connections)})"
+        return f"ConnectionManager(connections={len(self._connections)}, streaming={len(self._streaming_connections)}, data={len(self._data_connections)})"
 

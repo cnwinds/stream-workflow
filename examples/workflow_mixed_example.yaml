@@ -1,0 +1,65 @@
+workflow:
+  name: "混合流程参数引用示例"
+  description: "演示混合执行模式和参数引用功能"
+  
+  nodes:
+    # 1. 学生数据节点
+    - id: "student"
+      type: "start_node"
+      config:
+        data:
+          name: "张三"
+          age: 20
+          score: 85
+          course: "数学"
+    
+    # 2. 评分标准节点
+    - id: "standards"
+      type: "start_node"
+      config:
+        data:
+          excellent: 90
+          good: 80
+          pass: 60
+    
+    # 3. 条件判断节点 - 使用参数引用
+    - id: "grade_check"
+      type: "condition_node"
+      inputs:
+        - "student"
+      config:
+        conditions:
+          - branch: "excellent"
+            expression: "data.get('score', 0) >= 90"
+          - branch: "good"
+            expression: "data.get('score', 0) >= 80"
+          - branch: "pass"
+            expression: "data.get('score', 0) >= 60"
+        default_branch: "fail"
+    
+    # 4. 数据转换节点 - 组合多个节点的数据
+    - id: "report"
+      type: "transform_node"
+      inputs:
+        - "grade_check"
+      config:
+        operation: "custom"
+        config:
+          # 在表达式中组合数据
+          expression: |
+            {
+              'student': data.get('data', {}).get('data', {}).get('name', 'Unknown'),
+              'score': data.get('data', {}).get('data', {}).get('score', 0),
+              'grade': data.get('branch', 'unknown'),
+              'status': '通过' if data.get('matched', False) else '不通过'
+            }
+    
+    # 5. 输出节点 - 保存结果
+    - id: "output"
+      type: "output_node"
+      inputs:
+        - "report"
+      config:
+        format: "json"
+        save_to_file: true
+        file_path: "mixed_workflow_output.json"

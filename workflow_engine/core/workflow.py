@@ -191,6 +191,9 @@ class WorkflowEngine:
             # 如果是流式连接，关联队列
             if conn.is_streaming:
                 conn.target_queue = target_node.inputs[target_param_name].stream_queue
+            else:
+                # 如果是非流式连接，保存目标参数的引用
+                conn.target_param_ref = target_node.inputs[target_param_name]
             
             self._connection_manager.add_connection(conn)
             
@@ -221,54 +224,69 @@ class WorkflowEngine:
         # 如果所有参数都是流式的，则认为是流式工作流
         return len(self._nodes) > 0
     
-    def _get_execution_order(self) -> List[str]:
+    def _transfer_non_streaming_outputs(self, node: Node):
         """
-        计算节点执行顺序（拓扑排序）
+        传递非流式输出值到连接的下游节点
+        
+        Args:
+            node: 源节点
+        """
+        # 遍历节点的所有输出参数
+        for param_name, param in node.outputs.items():
+            if not param.is_streaming and param.value is not None:
+                # 通过连接管理器传递值
+                self._connection_manager.transfer_value(node.node_id, param_name, param.value)
+    
+    def _get_execution_order(self, node_ids: List[str] = None) -> List[str]:
+        """
+        计算节点执行顺序（拓扑排序）- 只考虑非流式连接
+        
+        Args:
+            node_ids: 需要排序的节点ID列表，如果为None则使用所有节点
         
         Returns:
             节点ID列表，按执行顺序排列
         """
-        # 构建依赖图
+        if node_ids is None:
+            node_ids = list(self._nodes.keys())
+        
+        # 构建依赖图（只使用非流式连接）
         in_degree = {}  # 入度
         graph = {}  # 邻接表
         
         # 初始化入度和图
-        for node_id, node in self._nodes.items():
-            # 新架构：基于连接计算入度
-            # 旧架构兼容：基于 _legacy_inputs 计算入度
-            if hasattr(node, '_legacy_inputs') and node._legacy_inputs:
-                in_degree[node_id] = len(node._legacy_inputs)
-            else:
-                # 计算有多少个输入参数有连接
-                in_degree[node_id] = 0
-                for conn in self._connection_manager.get_connections():
-                    if conn.target[0] == node_id:
-                        in_degree[node_id] += 1
-            
+        for node_id in node_ids:
+            in_degree[node_id] = 0
             graph[node_id] = []
         
-        # 构建邻接表
-        # 新架构：基于连接
-        for conn in self._connection_manager.get_connections():
+        # 只使用非流式连接构建依赖图
+        for conn in self._connection_manager.get_data_connections():
             source_node_id = conn.source[0]
             target_node_id = conn.target[0]
-            if target_node_id not in graph[source_node_id]:
-                graph[source_node_id].append(target_node_id)
+            
+            # 只考虑在 node_ids 范围内的节点
+            if source_node_id in node_ids and target_node_id in node_ids:
+                in_degree[target_node_id] += 1
+                if target_node_id not in graph[source_node_id]:
+                    graph[source_node_id].append(target_node_id)
         
         # 旧架构兼容：基于 _legacy_inputs
-        for node_id, node in self._nodes.items():
-            if hasattr(node, '_legacy_inputs'):
+        for node_id in node_ids:
+            node = self._nodes[node_id]
+            if hasattr(node, '_legacy_inputs') and node._legacy_inputs:
                 for input_node_id in node._legacy_inputs:
                     if input_node_id not in self._nodes:
                         raise ConfigurationError(
                             f"节点 '{node_id}' 的输入节点 '{input_node_id}' 不存在"
                         )
-                    if node_id not in graph[input_node_id]:
-                        graph[input_node_id].append(node_id)
+                    if input_node_id in node_ids:
+                        in_degree[node_id] += 1
+                        if node_id not in graph[input_node_id]:
+                            graph[input_node_id].append(node_id)
         
-        # 拓扑排序
+        # Kahn 算法拓扑排序
         execution_order = []
-        queue = [node_id for node_id, degree in in_degree.items() if degree == 0]
+        queue = [node_id for node_id in node_ids if in_degree[node_id] == 0]
         
         while queue:
             current = queue.pop(0)
@@ -281,8 +299,8 @@ class WorkflowEngine:
                     queue.append(neighbor)
         
         # 检查是否存在循环依赖
-        if len(execution_order) != len(self._nodes):
-            raise ConfigurationError("工作流存在循环依赖")
+        if len(execution_order) != len(node_ids):
+            raise ConfigurationError("工作流存在循环依赖（非流式连接）")
         
         return execution_order
     
@@ -330,7 +348,13 @@ class WorkflowEngine:
     
     async def execute_async(self, initial_data: Dict[str, Any] = None) -> WorkflowContext:
         """
-        异步执行工作流（新架构）
+        异步执行工作流（混合执行模式）
+        
+        执行策略：
+        1. 分类节点：sequential/hybrid vs streaming
+        2. 为所有流式输入启动消费任务（后台运行）
+        3. 对 sequential/hybrid 节点按拓扑顺序执行
+        4. 等待所有流式任务完成（或超时）
         
         Args:
             initial_data: 初始全局变量
@@ -350,43 +374,68 @@ class WorkflowEngine:
                 context.set_global_var(key, value)
         
         workflow_name = self._workflow_config['workflow']['name']
+        workflow_config = self._workflow_config['workflow'].get('config', {})
+        stream_timeout = workflow_config.get('stream_timeout', 300)
+        continue_on_error = workflow_config.get('continue_on_error', False)
+        
         context.log(f"开始执行工作流: {workflow_name}")
         
         try:
-            # 检查是否为纯流式工作流（所有节点都有流式参数）
-            is_streaming_workflow = self._is_streaming_workflow()
+            # 1. 分类节点
+            sequential_nodes = []  # 需要顺序执行的节点（sequential 和 hybrid）
+            streaming_nodes = []   # 纯流式节点
             
-            if is_streaming_workflow:
-                # 流式工作流：并发启动所有节点，不需要拓扑排序
-                context.log("检测到流式工作流，并发启动所有节点")
-                execution_order = list(self._nodes.keys())
-            else:
-                # 非流式工作流：使用拓扑排序
-                execution_order = self._get_execution_order()
-                context.log(f"执行顺序: {' -> '.join(execution_order)}")
+            for node_id, node in self._nodes.items():
+                if node.EXECUTION_MODE == 'streaming':
+                    streaming_nodes.append(node_id)
+                    context.log(f"节点 {node_id} [流式模式]")
+                elif node.EXECUTION_MODE == 'hybrid':
+                    sequential_nodes.append(node_id)
+                    context.log(f"节点 {node_id} [混合模式]")
+                else:  # sequential
+                    sequential_nodes.append(node_id)
+                    context.log(f"节点 {node_id} [顺序模式]")
             
-            # 为所有流式输入启动消费任务
+            # 2. 为所有流式输入启动消费任务（包括 streaming 和 hybrid 节点）
             stream_tasks = []
-            for node_id in execution_order:
-                node = self._nodes[node_id]
+            for node_id, node in self._nodes.items():
                 for param_name, param in node.inputs.items():
                     if param.is_streaming:
                         task = asyncio.create_task(node.consume_stream(param_name))
                         stream_tasks.append(task)
-                        context.log(f"启动流式消费任务: {node_id}.{param_name}")
+                        context.log(f"启动流式消费: {node_id}.{param_name}")
             
-            # 启动所有节点执行任务
-            node_tasks = []
+            # 3. 拓扑排序（只对 sequential/hybrid 节点排序）
+            if sequential_nodes:
+                execution_order = self._get_execution_order(sequential_nodes)
+                context.log(f"Sequential/Hybrid 执行顺序: {' -> '.join(execution_order)}")
+            else:
+                execution_order = []
+                context.log("没有 sequential/hybrid 节点，跳过拓扑排序")
+            
+            # 4. 按顺序执行 sequential/hybrid 节点
             for node_id in execution_order:
-                task = asyncio.create_task(self._nodes[node_id].run_async(context))
-                node_tasks.append(task)
+                node = self._nodes[node_id]
+                try:
+                    await node.run_async(context)
+                    # 传递非流式输出值到连接的下游节点
+                    self._transfer_non_streaming_outputs(node)
+                    context.log(f"节点 {node_id} 执行完成")
+                except Exception as e:
+                    context.log(f"节点 {node_id} 执行失败: {e}", level="ERROR")
+                    if not continue_on_error:
+                        raise
             
-            # 等待所有节点任务完成（或超时）
-            # 注意：流式任务会持续运行，可能需要手动管理生命周期
-            try:
-                await asyncio.gather(*node_tasks, return_exceptions=True)
-            except Exception as e:
-                context.log(f"节点执行异常: {e}", level="ERROR")
+            # 5. 等待所有流式任务完成（或超时）
+            if stream_tasks:
+                context.log(f"等待流式任务完成（超时: {stream_timeout}秒）")
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*stream_tasks, return_exceptions=True),
+                        timeout=stream_timeout
+                    )
+                except asyncio.TimeoutError:
+                    context.log("流式任务超时", level="WARNING")
             
             context.log(f"工作流执行完成: {workflow_name}", level="SUCCESS")
             

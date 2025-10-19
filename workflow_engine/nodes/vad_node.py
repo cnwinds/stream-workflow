@@ -30,6 +30,9 @@ class VADNode(Node):
         min_speech_duration: float - 最小语音持续时间，秒（默认 0.3）
     """
     
+    # 节点执行模式：纯流式节点，数据驱动
+    EXECUTION_MODE = 'streaming'
+    
     # 定义输入输出参数结构
     INPUT_PARAMS = {
         "raw_audio": ParameterSchema(

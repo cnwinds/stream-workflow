@@ -39,6 +39,9 @@ class AgentNode(Node):
         system_prompt: string - 系统提示词
     """
     
+    # 节点执行模式：混合模式，既能初始化模型，又能处理流式数据
+    EXECUTION_MODE = 'streaming'
+    
     # 定义输入输出参数结构
     INPUT_PARAMS = {
         "text_input": ParameterSchema(

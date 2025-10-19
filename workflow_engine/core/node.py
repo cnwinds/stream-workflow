@@ -66,7 +66,11 @@ class Node(ABC):
     - 支持多端口输入输出（通过 INPUT_PARAMS 和 OUTPUT_PARAMS 定义）
     - 支持异步执行（execute_async 方法）
     - 支持流式数据处理（emit_chunk 和 on_chunk_received 方法）
+    - 支持混合执行模式（通过 EXECUTION_MODE 定义）
     """
+    
+    # 节点执行模式（子类可重写）
+    EXECUTION_MODE = 'sequential'  # 'sequential' | 'streaming' | 'hybrid'
     
     # 子类定义参数结构（类属性）
     INPUT_PARAMS: Dict[str, ParameterSchema] = {}
@@ -96,6 +100,9 @@ class Node(ABC):
         self.inputs: Dict[str, Parameter] = {}
         self.outputs: Dict[str, Parameter] = {}
         self._init_parameters()
+        
+        # 存储解析后的配置（在执行时填充）
+        self.resolved_config: Dict[str, Any] = {}
     
     def _init_parameters(self):
         """初始化参数实例"""
@@ -326,6 +333,164 @@ class Node(ABC):
             input_data[input_node_id] = output
         return input_data
     
+    def resolve_config_params(self, context: WorkflowContext, config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        解析配置中的参数引用，从上下文获取实际值
+        
+        支持的语法：
+        - ${node_id}: 引用整个节点输出
+        - ${node_id.field}: 引用节点输出的某个字段
+        - ${node_id.data.score}: 引用嵌套字段
+        - ${global.var_name}: 引用全局变量
+        
+        Args:
+            context: 工作流执行上下文
+            config: 要解析的配置字典，默认使用 self.config
+            
+        Returns:
+            解析后的配置字典
+            
+        Examples:
+            配置: {"score": "${start.score}", "threshold": 80}
+            解析后: {"score": 85, "threshold": 80}
+        """
+        if config is None:
+            config = self.config
+        
+        return self._resolve_value(context, config)
+    
+    def _resolve_value(self, context: WorkflowContext, value: Any) -> Any:
+        """
+        递归解析值中的参数引用
+        
+        Args:
+            context: 工作流执行上下文
+            value: 要解析的值（可以是字符串、字典、列表等）
+            
+        Returns:
+            解析后的值
+        """
+        import re
+        
+        if isinstance(value, str):
+            # 匹配 ${...} 语法
+            pattern = r'\$\{([^}]+)\}'
+            matches = re.findall(pattern, value)
+            
+            if matches:
+                # 如果整个字符串就是一个引用，直接返回引用的值
+                if value == f'${{{matches[0]}}}' and len(matches) == 1:
+                    return self._get_reference_value(context, matches[0])
+                
+                # 否则进行字符串替换
+                result = value
+                for match in matches:
+                    ref_value = self._get_reference_value(context, match)
+                    # 将引用值转换为字符串进行替换
+                    result = result.replace(f'${{{match}}}', str(ref_value))
+                return result
+            
+            return value
+        
+        elif isinstance(value, dict):
+            # 递归解析字典中的所有值
+            return {k: self._resolve_value(context, v) for k, v in value.items()}
+        
+        elif isinstance(value, list):
+            # 递归解析列表中的所有元素
+            return [self._resolve_value(context, item) for item in value]
+        
+        else:
+            # 其他类型直接返回
+            return value
+    
+    def _get_reference_value(self, context: WorkflowContext, reference: str) -> Any:
+        """
+        获取引用的实际值
+        
+        Args:
+            context: 工作流执行上下文
+            reference: 引用字符串，如 "node_id" 或 "node_id.field" 或 "global.var_name"
+            
+        Returns:
+            引用的值
+            
+        Raises:
+            ValueError: 引用格式错误或引用的值不存在
+        """
+        parts = reference.split('.', 1)
+        node_or_global = parts[0]
+        field = parts[1] if len(parts) > 1 else None
+        
+        # 处理全局变量引用
+        if node_or_global == 'global':
+            if field is None:
+                raise ValueError(f"全局变量引用必须指定变量名: global.var_name")
+            value = context.get_global_var(field)
+            if value is None:
+                raise ValueError(f"全局变量不存在: {field}")
+            return value
+        
+        # 处理节点输出引用
+        value = context.get_node_output(node_or_global, field)
+        if value is None:
+            if field:
+                raise ValueError(f"节点输出字段不存在: {node_or_global}.{field}")
+            else:
+                raise ValueError(f"节点输出不存在: {node_or_global}")
+        
+        return value
+    
+    def get_config(self, key: str = None, default: Any = None) -> Any:
+        """
+        获取配置参数（优先使用解析后的配置）
+        
+        这是一个便捷方法，简化了配置参数的获取：
+        - 自动使用 resolved_config（如果已解析）
+        - 支持嵌套键访问（使用点号分隔，如 "config.url"）
+        - 提供默认值支持
+        
+        Args:
+            key: 配置键名，支持嵌套访问（如 "config.url"），如果为 None 则返回整个配置
+            default: 默认值，当键不存在时返回
+            
+        Returns:
+            配置值或默认值
+            
+        Examples:
+            # 获取顶层配置
+            url = self.get_config('url')
+            
+            # 获取嵌套配置
+            url = self.get_config('config.url')
+            
+            # 使用默认值
+            timeout = self.get_config('timeout', 30)
+            
+            # 获取整个配置字典
+            all_config = self.get_config()
+        """
+        # 使用解析后的配置（如果存在），否则使用原始配置
+        config = self.resolved_config if self.resolved_config else self.config
+        
+        # 如果没有指定 key，返回整个配置
+        if key is None:
+            return config
+        
+        # 支持嵌套键访问
+        keys = key.split('.')
+        value = config
+        
+        for k in keys:
+            if isinstance(value, dict):
+                value = value.get(k)
+                if value is None:
+                    return default
+            else:
+                return default
+        
+        return value if value is not None else default
+    
     # 异步运行方法
     async def run_async(self, context: WorkflowContext) -> Any:
         """
@@ -341,8 +506,20 @@ class Node(ABC):
             self.status = NodeStatus.RUNNING
             context.log(f"开始执行节点: {self.node_id}")
             
+            # 执行前解析配置中的参数引用
+            try:
+                self.resolved_config = self.resolve_config_params(context)
+                context.log(f"节点 {self.node_id} 配置参数解析完成")
+            except Exception as e:
+                context.log(f"节点 {self.node_id} 配置参数解析失败: {e}", level="WARNING")
+                self.resolved_config = self.config.copy()
+            
             # 执行节点逻辑
             result = await self.execute_async(context)
+            
+            # 保存输出到上下文（异步模式也需要保存）
+            if result is not None:
+                context.set_node_output(self.node_id, result)
             
             self.status = NodeStatus.SUCCESS
             context.log(f"节点执行成功: {self.node_id}")
@@ -368,6 +545,14 @@ class Node(ABC):
         try:
             self.status = NodeStatus.RUNNING
             context.log(f"开始执行节点: {self.name} (ID: {self.node_id})")
+            
+            # 执行前解析配置中的参数引用
+            try:
+                self.resolved_config = self.resolve_config_params(context)
+                context.log(f"节点 {self.node_id} 配置参数解析完成")
+            except Exception as e:
+                context.log(f"节点 {self.node_id} 配置参数解析失败: {e}", level="WARNING")
+                self.resolved_config = self.config.copy()
             
             # 执行前验证
             self.validate(context)

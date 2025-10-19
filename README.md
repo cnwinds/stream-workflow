@@ -11,9 +11,11 @@
 - 🎯 **条件分支**: 支持基于条件的流程分支
 - 🔍 **执行日志**: 详细的执行日志和错误追踪
 - 🛠️ **内置节点**: 提供常用的节点类型（HTTP请求、数据转换、条件判断等）
-- 🌊 **流式处理**: 支持实时音频/视频流、WebSocket 实时通信（新增）
-- 🔗 **多端口连接**: 参数级精确连接，自动类型验证（新增）
-- ⚡ **异步并发**: 基于 asyncio 的高性能异步执行（新增）
+- 🌊 **流式处理**: 支持实时音频/视频流、WebSocket 实时通信
+- 🔗 **多端口连接**: 参数级精确连接，自动类型验证
+- ⚡ **异步并发**: 基于 asyncio 的高性能异步执行
+- 🔀 **混合执行模式**: 优雅融合流式和非流式节点，支持反馈回路
+- 🔍 **上下文参数引用**: 使用 `${node_id.field}` 语法灵活引用节点输出，无需配置连接（新增）
 
 ## 📦 安装
 
@@ -89,8 +91,11 @@ for log in context.get_logs():
 ### 3. 运行示例
 
 ```bash
-# 运行提供的示例
-python examples/run_example.py
+# 运行自定义节点示例
+python examples/custom_node_example.py
+
+# 运行混合流程示例
+python examples/run_mixed_example.py
 ```
 
 ## 📚 核心概念
@@ -246,35 +251,105 @@ python examples/run_example.py
   file_path: "output.json"
 ```
 
+## 🔍 上下文参数引用（新功能）
+
+对于顺序执行的节点，你可以使用 `${node_id.field}` 语法直接从上下文中引用其他节点的输出，无需配置复杂的连接。
+
+### 使用方法
+
+在节点配置中，使用 `${}` 语法引用其他节点的输出：
+
+```yaml
+workflow:
+  name: "参数引用示例"
+  nodes:
+    # 提供数据的节点
+    - id: "data_source"
+      type: "start_node"
+      config:
+        data:
+          name: "张三"
+          score: 85
+    
+    # 使用参数引用获取数据
+    - id: "process"
+      type: "http_node"
+      inputs:
+        - "data_source"
+      config:
+        url: "https://api.example.com/submit"
+        method: "POST"
+        body:
+          # 引用 data_source 节点的输出字段
+          student_name: "${data_source.name}"
+          score: "${data_source.score}"
+```
+
+### 支持的引用语法
+
+- `${node_id}` - 引用整个节点输出
+- `${node_id.field}` - 引用节点输出的特定字段
+- `${node_id.user.name}` - 引用嵌套字段
+- `${global.var_name}` - 引用全局变量
+
+### 优势
+
+✅ **配置简单** - 无需定义connections  
+✅ **灵活引用** - 可以引用任意节点的任意字段  
+✅ **支持嵌套** - 支持深层嵌套字段访问  
+✅ **字符串模板** - 支持在字符串中嵌入引用
+
+### 完整文档
+
+参见：[工作流引擎完整指南](docs/COMPLETE_GUIDE.md)
+
+### 精简演示
+
+我们提供了两个核心演示示例：
+
+1. **自定义节点示例** - `examples/custom_node_example.py`
+   - 展示如何创建自定义节点
+   - 演示简化的 `get_config()` API
+   - 计算流程：100 + 50 = 150, 150 * 2 = 300
+
+2. **混合流程示例** - `examples/run_mixed_example.py`
+   - 展示参数引用功能
+   - 演示混合执行模式
+   - 学生成绩评估流程
+
 ## 🎨 自定义节点
 
-创建自定义节点非常简单，只需继承 `Node` 基类并实现 `execute` 方法：
+创建自定义节点非常简单，只需继承 `Node` 基类并实现 `execute_async` 方法：
 
 ```python
-from workflow_engine.core import Node, WorkflowContext, NodeExecutionError
+from workflow_engine.core import Node, WorkflowContext, register_node
 
+@register_node('my_custom')  # 使用装饰器自动注册
 class MyCustomNode(Node):
     """自定义节点示例"""
     
-    def execute(self, context: WorkflowContext):
+    EXECUTION_MODE = 'sequential'  # 或 'streaming' / 'hybrid'
+    
+    async def execute_async(self, context: WorkflowContext):
         """
         执行节点逻辑
         
         可以使用:
-        - self.config: 节点配置
+        - self.get_config(): 获取配置参数（简化API）✨
         - self.get_input_data(context): 获取输入数据
         - context.log(): 记录日志
-        - context.set_global_var(): 设置全局变量
+        - context.get_node_output(): 从上下文获取其他节点输出
         """
-        # 获取配置参数
-        param1 = self.config.get('param1')
-        param2 = self.config.get('param2', 'default_value')
+        # ✨ 使用简化的配置获取 API
+        param1 = self.get_config('config.param1')
+        param2 = self.get_config('config.param2', 'default_value')
+        timeout = self.get_config('timeout', 30)
         
         # 获取输入数据
         input_data = self.get_input_data(context)
         
         # 执行自定义逻辑
-        result = self._do_something(input_data, param1, param2)
+        result = await self._do_something(input_data, param1, param2)
         
         # 记录日志
         context.log(f"处理完成: {result}")
@@ -282,12 +357,9 @@ class MyCustomNode(Node):
         # 返回结果
         return result
     
-    def _do_something(self, data, param1, param2):
+    async def _do_something(self, data, param1, param2):
         # 实现你的逻辑
         return {"processed": True}
-
-# 注册自定义节点
-engine.register_node_type('my_custom', MyCustomNode)
 ```
 
 然后在配置文件中使用：
@@ -450,6 +522,73 @@ workflow_engine/
 5. **执行节点**: 按顺序执行每个节点
 6. **传递数据**: 自动在节点间传递数据
 7. **记录日志**: 记录执行过程和结果
+
+## 🔀 混合执行模式
+
+工作流引擎支持三种节点执行模式，可以在同一个工作流中优雅地混合使用：
+
+### 节点执行模式
+
+| 模式 | 描述 | 执行方式 | 典型应用 |
+|------|------|----------|----------|
+| **sequential** | 顺序执行节点 | 按拓扑顺序执行，执行完返回 | HTTP请求、数据库查询、数据转换 |
+| **streaming** | 流式处理节点 | 数据驱动，实时响应 | 音频/视频处理、实时通信 |
+| **hybrid** | 混合模式节点 | 既有初始化逻辑，又能处理流式数据 | AI Agent（需要初始化+流式对话） |
+
+### 混合工作流示例
+
+```yaml
+workflow:
+  name: "混合工作流"
+  config:
+    stream_timeout: 300
+  
+  nodes:
+    # 非流式节点 - 按顺序执行
+    - id: "api_call"
+      type: "http"  # EXECUTION_MODE = 'sequential'
+      config:
+        url: "https://api.example.com/data"
+    
+    # 流式节点 - 数据驱动
+    - id: "vad"
+      type: "vad_node"  # EXECUTION_MODE = 'streaming'
+    
+    - id: "asr"
+      type: "asr_node"  # EXECUTION_MODE = 'streaming'
+    
+    - id: "agent"
+      type: "agent_node"  # EXECUTION_MODE = 'streaming'
+  
+  connections:
+    # 流式连接 - 实时传递，不影响执行顺序
+    - from: "vad.audio_stream"
+      to: "asr.audio_in"
+    
+    - from: "asr.text_stream"
+      to: "agent.text_input"
+    
+    # 支持反馈回路（流式连接允许循环）
+    - from: "agent.status"
+      to: "vad.control"
+```
+
+### 运行混合工作流
+
+```bash
+# 运行混合工作流示例
+python examples/run_hybrid_simple_example.py
+```
+
+### 关键优势
+
+- ✅ **自动分类**: 引擎根据 `EXECUTION_MODE` 自动处理节点
+- ✅ **智能排序**: 只对非流式节点进行拓扑排序
+- ✅ **反馈回路**: 流式连接支持循环依赖（反馈控制）
+- ✅ **实时性**: 流式数据不等待非流式节点完成
+- ✅ **资源优化**: 并发执行，充分利用系统资源
+
+详细文档请参阅：[混合执行模式设计文档](docs/HYBRID_EXECUTION_MODE.md)
 
 ## ⚙️ 高级特性
 

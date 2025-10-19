@@ -1,16 +1,64 @@
 """数据转换节点"""
 
 from typing import Any, Dict
-from workflow_engine.core import Node, WorkflowContext, NodeExecutionError
+from workflow_engine.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
 
-
+@register_node('transform_node')
 class TransformNode(Node):
     """
     数据转换节点
-    支持多种数据转换操作
+    
+    功能：支持多种数据转换操作
+    
+    输入参数：
+        input_data: 输入数据（可选，可以从配置文件或输入获取）
+            - data: any - 要转换的数据
+            - operation: string - 转换操作类型
+            - config: dict - 操作相关配置
+    
+    输出参数：
+        output: 转换后的数据
+            - result: any - 转换结果
+            - operation: string - 执行的操作类型
+            - success: boolean - 转换是否成功
+    
+    配置参数：
+        operation: string - 转换操作类型
+            - "extract": 提取字段
+            - "map": 映射/重命名字段
+            - "filter": 过滤数据
+            - "aggregate": 聚合数据
+            - "custom": 自定义Python表达式
+        config: dict - 操作相关的配置
     """
     
-    def execute(self, context: WorkflowContext) -> Any:
+    # 节点执行模式：顺序执行，任务驱动
+    EXECUTION_MODE = 'sequential'
+    
+    # 定义输入输出参数结构
+    INPUT_PARAMS = {
+        "input_data": ParameterSchema(
+            is_streaming=False,
+            schema={
+                "data": "any",
+                "operation": "string",
+                "config": "dict"
+            }
+        )
+    }
+    
+    OUTPUT_PARAMS = {
+        "output": ParameterSchema(
+            is_streaming=False,
+            schema={
+                "result": "any",
+                "operation": "string",
+                "success": "boolean"
+            }
+        )
+    }
+    
+    async def execute_async(self, context: WorkflowContext) -> Any:
         """
         执行数据转换
         
@@ -23,27 +71,43 @@ class TransformNode(Node):
               - "custom": 自定义Python表达式
             - config: 操作相关的配置
         """
-        operation = self.config.get('operation')
-        op_config = self.config.get('config', {})
+        # 1. 从配置文件获取默认值（使用简化的 get_config 方法）
+        operation = self.get_config('config.operation') or self.get_config('operation')
+        op_config = self.get_config('config.config') or self.get_config('config', {})
+        
+        # 2. 尝试从输入参数获取（覆盖配置）
+        try:
+            input_data = self.get_input_value('input_data')
+            if input_data:
+                data = input_data.get('data')
+                operation = input_data.get('operation', operation)
+                op_config = input_data.get('config', op_config)
+        except (ValueError, KeyError):
+            # 没有输入参数，使用配置文件的值
+            pass
         
         if not operation:
             raise NodeExecutionError(self.node_id, "缺少必需参数: operation")
         
-        # 获取输入数据
-        input_data = self.get_input_data(context)
+        # 3. 获取要转换的数据
+        if 'data' in locals() and data is not None:
+            # 使用输入参数中的数据
+            merged_input = data
+        else:
+            # 使用旧架构的输入数据（向后兼容）
+            input_data = self.get_input_data(context)
+            if not input_data:
+                raise NodeExecutionError(self.node_id, "没有输入数据")
+            
+            # 合并所有输入数据
+            merged_input = {}
+            for node_id, data in input_data.items():
+                if isinstance(data, dict):
+                    merged_input.update(data)
+                else:
+                    merged_input[node_id] = data
         
-        if not input_data:
-            raise NodeExecutionError(self.node_id, "没有输入数据")
-        
-        # 合并所有输入数据
-        merged_input = {}
-        for node_id, data in input_data.items():
-            if isinstance(data, dict):
-                merged_input.update(data)
-            else:
-                merged_input[node_id] = data
-        
-        # 根据操作类型执行转换
+        # 4. 根据操作类型执行转换
         try:
             if operation == "extract":
                 result = self._extract(merged_input, op_config)
@@ -61,10 +125,27 @@ class TransformNode(Node):
                     f"不支持的转换操作: {operation}"
                 )
             
+            # 5. 设置输出值
+            self.set_output_value('output', {
+                'result': result,
+                'operation': operation,
+                'success': True
+            })
+            
             context.log(f"数据转换完成，操作类型: {operation}")
-            return result
+            return {
+                'result': result,
+                'operation': operation,
+                'success': True
+            }
             
         except Exception as e:
+            # 设置失败输出
+            self.set_output_value('output', {
+                'result': None,
+                'operation': operation,
+                'success': False
+            })
             raise NodeExecutionError(
                 self.node_id,
                 f"数据转换失败: {str(e)}",

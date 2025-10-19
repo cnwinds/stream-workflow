@@ -32,6 +32,9 @@ class ASRNode(Node):
         stream_mode: boolean - 是否流式识别（默认 true）
     """
     
+    # 节点执行模式：纯流式节点，数据驱动
+    EXECUTION_MODE = 'streaming'
+    
     # 定义输入输出参数结构
     INPUT_PARAMS = {
         "audio_in": ParameterSchema(

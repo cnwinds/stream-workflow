@@ -39,6 +39,9 @@ class TTSNode(Node):
         audio_format: string - 输出音频格式（默认 "opus"）
     """
     
+    # 节点执行模式：混合模式，既能初始化TTS引擎，又能处理流式数据
+    EXECUTION_MODE = 'streaming'
+    
     # 定义输入输出参数结构
     INPUT_PARAMS = {
         "text_input": ParameterSchema(
