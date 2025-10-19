@@ -64,19 +64,13 @@ async def main():
                 "sample_rate": 16000
             }
             
-            # 直接向 VAD 节点的输入队列发送数据
-            await vad_node.inputs['raw_audio'].stream_queue.put(
-                type('StreamChunk', (), {
-                    'data': audio_chunk,
-                    'schema': vad_node.inputs['raw_audio'].schema,
-                    'timestamp': asyncio.get_event_loop().time()
-                })()
-            )
+            # 使用 feed_input_chunk 方法发送数据（推荐方式）
+            await vad_node.feed_input_chunk('raw_audio', audio_chunk)
             print(f"  已发送音频 chunk {i+1}/3")
             await asyncio.sleep(0.5)
         
-        # 发送结束信号
-        await vad_node.inputs['raw_audio'].stream_queue.put(None)
+        # 发送结束信号（使用 close_input_stream 方法）
+        await vad_node.close_input_stream('raw_audio')
         print("\n等待工作流处理完成...")
         
         # 等待工作流完成（设置超时）

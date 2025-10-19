@@ -194,8 +194,32 @@ class WorkflowEngine:
             
             self._connection_manager.add_connection(conn)
             
-            print(f"✓ 连接已建立: {source_node_id}.{source_param_name} -> "
+            print(f"连接已建立: {source_node_id}.{source_param_name} -> "
                   f"{target_node_id}.{target_param_name}")
+    
+    def _is_streaming_workflow(self) -> bool:
+        """
+        检查是否为流式工作流
+        
+        流式工作流的特征：
+        1. 所有连接都是流式的
+        2. 允许存在循环依赖（反馈回路）
+        
+        Returns:
+            True 如果是流式工作流
+        """
+        # 检查是否所有节点都只有流式参数
+        for node in self._nodes.values():
+            # 检查是否有非流式输入或输出参数
+            for param in node.inputs.values():
+                if not param.is_streaming:
+                    return False
+            for param in node.outputs.values():
+                if not param.is_streaming:
+                    return False
+        
+        # 如果所有参数都是流式的，则认为是流式工作流
+        return len(self._nodes) > 0
     
     def _get_execution_order(self) -> List[str]:
         """
@@ -329,9 +353,17 @@ class WorkflowEngine:
         context.log(f"开始执行工作流: {workflow_name}")
         
         try:
-            # 获取执行顺序
-            execution_order = self._get_execution_order()
-            context.log(f"执行顺序: {' -> '.join(execution_order)}")
+            # 检查是否为纯流式工作流（所有节点都有流式参数）
+            is_streaming_workflow = self._is_streaming_workflow()
+            
+            if is_streaming_workflow:
+                # 流式工作流：并发启动所有节点，不需要拓扑排序
+                context.log("检测到流式工作流，并发启动所有节点")
+                execution_order = list(self._nodes.keys())
+            else:
+                # 非流式工作流：使用拓扑排序
+                execution_order = self._get_execution_order()
+                context.log(f"执行顺序: {' -> '.join(execution_order)}")
             
             # 为所有流式输入启动消费任务
             stream_tasks = []

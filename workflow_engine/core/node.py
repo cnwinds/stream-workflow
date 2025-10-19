@@ -203,6 +203,72 @@ class Node(ABC):
         """
         pass
     
+    async def feed_input_chunk(self, param_name: str, chunk_data: Any):
+        """
+        向节点的输入参数发送流式数据（用于外部数据注入）
+        
+        Args:
+            param_name: 输入参数名称
+            chunk_data: chunk 数据（字典或简单值）
+            
+        Raises:
+            ValueError: 参数不存在或不是流式参数
+        """
+        if param_name not in self.inputs:
+            raise ValueError(f"未知输入参数: {param_name}")
+        
+        param = self.inputs[param_name]
+        if not param.is_streaming:
+            raise ValueError(f"参数 {param_name} 不是流式参数，请使用 set_input_value")
+        
+        # 创建并验证 StreamChunk
+        chunk = StreamChunk(chunk_data, param.schema)
+        
+        # 放入输入队列
+        await param.stream_queue.put(chunk)
+    
+    async def close_input_stream(self, param_name: str):
+        """
+        关闭流式输入参数（发送结束信号）
+        
+        Args:
+            param_name: 输入参数名称
+            
+        Raises:
+            ValueError: 参数不存在或不是流式参数
+        """
+        if param_name not in self.inputs:
+            raise ValueError(f"未知输入参数: {param_name}")
+        
+        param = self.inputs[param_name]
+        if not param.is_streaming:
+            raise ValueError(f"参数 {param_name} 不是流式参数")
+        
+        # 发送结束信号
+        await param.stream_queue.put(None)
+    
+    def set_input_value(self, param_name: str, value: Any):
+        """
+        设置非流式输入值（用于外部数据注入）
+        
+        Args:
+            param_name: 输入参数名称
+            value: 输入值
+            
+        Raises:
+            ValueError: 参数不存在或是流式参数
+        """
+        if param_name not in self.inputs:
+            raise ValueError(f"未知输入参数: {param_name}")
+        
+        param = self.inputs[param_name]
+        if param.is_streaming:
+            raise ValueError(f"参数 {param_name} 是流式参数，请使用 feed_input_chunk")
+        
+        # 验证并保存值
+        param.schema.validate_value(value)
+        param.value = value
+    
     # 非流式参数访问方法
     def set_output_value(self, param_name: str, value: Any):
         """

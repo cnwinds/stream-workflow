@@ -25,6 +25,12 @@ class TTSNode(Node):
             - audio_type: string - 编码格式
             - sample_rate: integer - 采样率
             - timestamp: float - 时间戳
+        
+        broadcast_status: 播报状态通知流
+            - status: string - 状态类型（"start" 或 "end"）
+            - text: string - 当前播报的文本
+            - sentence_index: integer - 句子索引
+            - timestamp: float - 时间戳
     
     配置参数：
         voice: string - 音色名称（默认 "zh-CN-XiaoxiaoNeural"）
@@ -55,12 +61,22 @@ class TTSNode(Node):
                 "sample_rate": "integer",
                 "timestamp": "float"
             }
+        ),
+        "broadcast_status": ParameterSchema(
+            is_streaming=True,
+            schema={
+                "status": "string",
+                "text": "string",
+                "sentence_index": "integer",
+                "timestamp": "float"
+            }
         )
     }
     
     def __init__(self, node_id, config, connection_manager=None):
         super().__init__(node_id, config, connection_manager)
         self._text_buffer = []  # 累积文本用于合成
+        self._sentence_index = 0  # 当前句子索引
     
     async def execute_async(self, context: WorkflowContext):
         """
@@ -112,8 +128,14 @@ class TTSNode(Node):
                 full_text = "".join(self._text_buffer)
                 self._text_buffer.clear()
                 
+                # 发送播报开始通知
+                await self._send_broadcast_status("start", full_text)
+                
                 # 合成音频
                 await self._synthesize(full_text)
+                
+                # 发送播报结束通知
+                await self._send_broadcast_status("end", full_text)
     
     async def _synthesize(self, text: str):
         """
@@ -144,6 +166,25 @@ class TTSNode(Node):
             "sample_rate": 16000,
             "timestamp": time.time()
         })
+    
+    async def _send_broadcast_status(self, status: str, text: str):
+        """
+        发送播报状态通知
+        
+        Args:
+            status: 状态类型（"start" 或 "end"）
+            text: 当前播报的文本
+        """
+        await self.emit_chunk("broadcast_status", {
+            "status": status,
+            "text": text,
+            "sentence_index": self._sentence_index,
+            "timestamp": time.time()
+        })
+        
+        # 如果是结束状态，增加句子索引
+        if status == "end":
+            self._sentence_index += 1
     
     def _generate_mock_audio(self, text: str) -> bytes:
         """

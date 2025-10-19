@@ -18,6 +18,12 @@ class AgentNode(Node):
             - is_final: boolean - 是否最终输入
             - confidence: float - 置信度
             - timestamp: float - 时间戳
+        
+        broadcast_status: 播报状态通知流
+            - status: string - 状态类型（"start" 或 "end"）
+            - text: string - 当前播报的文本
+            - sentence_index: integer - 句子索引
+            - timestamp: float - 时间戳
     
     输出参数：
         response_text: 响应文本流
@@ -41,6 +47,15 @@ class AgentNode(Node):
                 "text": "string",
                 "is_final": "boolean",
                 "confidence": "float",
+                "timestamp": "float"
+            }
+        ),
+        "broadcast_status": ParameterSchema(
+            is_streaming=True,
+            schema={
+                "status": "string",
+                "text": "string",
+                "sentence_index": "integer",
                 "timestamp": "float"
             }
         )
@@ -114,6 +129,10 @@ class AgentNode(Node):
                     await self._generate_stream_response(full_text)
                 else:
                     await self._generate_response(full_text)
+        
+        elif param_name == "broadcast_status":
+            # 处理播报状态通知
+            await self._handle_broadcast_status(chunk.data)
     
     async def _generate_stream_response(self, input_text: str):
         """
@@ -175,4 +194,26 @@ class AgentNode(Node):
         
         # 示例：返回模拟响应
         return f"这是对 '{input_text}' 的智能回复。"
+    
+    async def _handle_broadcast_status(self, status_data: dict):
+        """
+        处理播报状态通知
+        
+        Args:
+            status_data: 播报状态数据
+        """
+        status = status_data["status"]
+        text = status_data["text"]
+        sentence_index = status_data["sentence_index"]
+        timestamp = status_data["timestamp"]
+        
+        if status == "start":
+            # 播报开始：可以在这里记录日志、更新UI等
+            print(f"[Agent] 开始播报第 {sentence_index} 句: {text}")
+        elif status == "end":
+            # 播报结束：可以在这里进行后续处理
+            print(f"[Agent] 结束播报第 {sentence_index} 句: {text}")
+        
+        # 这里可以根据播报状态进行相应的处理
+        # 例如：更新对话状态、记录播报历史等
 

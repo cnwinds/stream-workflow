@@ -47,4 +47,8 @@ workflow:
     
     - from: "agent.response_text"
       to: "tts.text_input"
+    
+    # 播报状态通知连接
+    - from: "tts.broadcast_status"
+      to: "agent.broadcast_status"
 
