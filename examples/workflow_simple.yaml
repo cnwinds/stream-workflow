@@ -1,0 +1,50 @@
+# 简单的工作流配置示例
+
+workflow:
+  name: "简单数据处理流程"
+  description: "演示基本的数据流转和处理"
+  version: "1.0.0"
+  
+  nodes:
+    # 起始节点：提供初始数据
+    - id: "start"
+      type: "start"
+      name: "开始"
+      description: "提供初始用户数据"
+      data:
+        user_id: 123
+        username: "张三"
+        score: 85
+    
+    # 数据转换节点：提取字段
+    - id: "transform1"
+      type: "transform"
+      name: "提取用户信息"
+      description: "提取用户名和分数"
+      inputs:
+        - "start"
+      operation: "extract"
+      config:
+        fields:
+          - "username"
+          - "score"
+    
+    # 数据转换节点：添加等级
+    - id: "transform2"
+      type: "transform"
+      name: "计算等级"
+      description: "根据分数计算等级"
+      inputs:
+        - "transform1"
+      operation: "custom"
+      config:
+        expression: "{'username': data['username'], 'score': data['score'], 'grade': 'A' if data['score'] >= 90 else ('B' if data['score'] >= 80 else 'C')}"
+    
+    # 输出节点
+    - id: "output"
+      type: "output"
+      name: "输出结果"
+      description: "打印最终结果"
+      inputs:
+        - "transform2"
+      format: "json"

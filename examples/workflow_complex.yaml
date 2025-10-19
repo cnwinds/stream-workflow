@@ -1,0 +1,110 @@
+# 复杂工作流配置示例：多节点、多分支
+
+workflow:
+  name: "复杂数据处理流程"
+  description: "演示多节点协作和数据合并"
+  version: "1.0.0"
+  
+  nodes:
+    # 起始节点1：用户数据
+    - id: "start_users"
+      type: "start"
+      name: "用户数据源"
+      data:
+        users:
+          - id: 1
+            name: "张三"
+            score: 95
+          - id: 2
+            name: "李四"
+            score: 82
+          - id: 3
+            name: "王五"
+            score: 78
+    
+    # 起始节点2：配置数据
+    - id: "start_config"
+      type: "start"
+      name: "配置数据源"
+      data:
+        pass_score: 80
+        grade_a: 90
+        grade_b: 80
+        grade_c: 60
+    
+    # 合并节点：合并两个起始节点的数据
+    - id: "merge_data"
+      type: "merge"
+      name: "合并数据"
+      description: "合并用户数据和配置数据"
+      inputs:
+        - "start_users"
+        - "start_config"
+      strategy: "merge"
+    
+    # 数据转换节点：处理用户列表
+    - id: "process_users"
+      type: "transform"
+      name: "处理用户数据"
+      description: "为每个用户添加等级信息"
+      inputs:
+        - "merge_data"
+      operation: "custom"
+      config:
+        expression: |
+          {
+            'users': [
+              {
+                **user,
+                'grade': 'A' if user['score'] >= data['grade_a'] else 
+                        ('B' if user['score'] >= data['grade_b'] else 
+                        ('C' if user['score'] >= data['grade_c'] else 'D')),
+                'passed': user['score'] >= data['pass_score']
+              }
+              for user in data['users']
+            ],
+            'total': len(data['users']),
+            'pass_score': data['pass_score']
+          }
+    
+    # 条件节点：检查及格率
+    - id: "check_pass_rate"
+      type: "condition"
+      name: "检查及格率"
+      description: "计算并判断及格率是否达标"
+      inputs:
+        - "process_users"
+      conditions:
+        - branch: "excellent"
+          expression: "sum(1 for u in users if u['passed']) / len(users) >= 0.9"
+        - branch: "good"
+          expression: "sum(1 for u in users if u['passed']) / len(users) >= 0.7"
+      default_branch: "need_improvement"
+    
+    # 数据转换节点：生成报告
+    - id: "generate_report"
+      type: "transform"
+      name: "生成报告"
+      description: "生成最终统计报告"
+      inputs:
+        - "check_pass_rate"
+      operation: "custom"
+      config:
+        expression: |
+          {
+            'users': data['data']['users'],
+            'total_users': data['data']['total'],
+            'passed_users': sum(1 for u in data['data']['users'] if u['passed']),
+            'pass_rate': sum(1 for u in data['data']['users'] if u['passed']) / len(data['data']['users']),
+            'evaluation': data['branch'],
+            'pass_score': data['data']['pass_score']
+          }
+    
+    # 输出节点
+    - id: "output"
+      type: "output"
+      name: "输出报告"
+      description: "输出最终统计报告"
+      inputs:
+        - "generate_report"
+      format: "json"
