@@ -49,7 +49,7 @@
 - 新增 `get_streaming_connections()` 和 `get_data_connections()` 方法
 
 **3. WorkflowEngine 重构** (`workflow_engine/core/workflow.py`)
-- 重写 `execute_async()` 方法，实现混合执行模式
+- 重写工作流执行方法，实现混合执行模式
   - 分类节点：sequential/hybrid vs streaming
   - 启动所有流式消费任务（后台运行）
   - 对 sequential/hybrid 节点按拓扑顺序执行
@@ -153,7 +153,7 @@ _data_connections = []       # is_streaming == False
 重构内容：
 - 添加 `@register_node('transform_node')` 装饰器
 - 定义 `INPUT_PARAMS` 和 `OUTPUT_PARAMS`
-- 实现 `execute_async()` 方法
+- 实现 `run()` 方法
 - 支持新格式的参数连接
 
 **2. MergeNode** (`merge_node.py`)

@@ -342,7 +342,7 @@ async def send_audio_stream():
     vad_node = engine._nodes['vad']
     
     # 启动工作流（后台任务）
-    workflow_task = asyncio.create_task(engine.execute_async())
+    workflow_task = asyncio.create_task(engine.start())
     
     # 等待节点初始化
     await asyncio.sleep(1)
@@ -495,7 +495,7 @@ async def send_data():
     vad_node = engine._nodes['vad']
     
     # 启动工作流
-    workflow_task = asyncio.create_task(engine.execute_async())
+    workflow_task = asyncio.create_task(engine.start())
     await asyncio.sleep(1)  # 等待节点初始化
     
     # 发送流式数据

@@ -315,10 +315,10 @@ class AudioProcessorNode(Node):
 ```
 1. 引擎启动 → 调用 __init__
 2. 启动 consume_stream 后台任务（监听输入）
-3. 调用 execute_async（初始化）
+3. 调用 run（初始化）
 4. 持续运行，处理输入 chunk
 5. 接收结束信号 → 退出 consume_stream
-6. asyncio.CancelledError → execute_async 退出
+6. asyncio.CancelledError → run 退出
 ```
 
 ---
@@ -562,8 +562,8 @@ _data_connections = []       # is_streaming == False
 #### 执行流程
 
 ```python
-async def execute_async(self, initial_data=None):
-    """混合执行模式"""
+async def start(self, initial_data=None):
+    """混合执行模式 - 启动工作流"""
     
     # 1. 分类节点
     sequential_nodes = [...]
@@ -717,7 +717,7 @@ async def test_my_node():
     node.set_input_value('input_data', {'test': 'data'})
     
     # 执行
-    result = await node.execute_async(context)
+    result = await node.run(context)
     
     # 验证输出
     assert result['processed'] == True
@@ -746,7 +746,7 @@ async def test_workflow():
 ### 添加新的执行模式
 
 1. 在 `Node` 类中定义新的 `EXECUTION_MODE`
-2. 在 `WorkflowEngine.execute_async()` 中处理新模式
+2. 在 `WorkflowEngine` 中处理新模式
 3. 更新文档和示例
 
 ### 添加新的参数类型

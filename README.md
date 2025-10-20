@@ -331,7 +331,7 @@ workflow:
 
 ## 🎨 自定义节点
 
-创建自定义节点非常简单，只需继承 `Node` 基类并实现 `execute_async` 方法：
+创建自定义节点非常简单，只需继承 `Node` 基类并实现 `run` 方法：
 
 ```python
 from workflow_engine.core import Node, WorkflowContext, register_node
