@@ -76,27 +76,30 @@ class AgentNode(Node):
         )
     }
     
-    def __init__(self, node_id, config, connection_manager=None):
-        super().__init__(node_id, config, connection_manager)
-        self._input_buffer = []  # 累积输入文本
     
-    async def execute_async(self, context: WorkflowContext):
+    async def initialize(self, context: WorkflowContext):
+        """初始化 Agent（加载模型等）"""
+        # 初始化实例变量
+        self._input_buffer = []  # 累积输入文本
+        self._model = self.config.get('model', 'gpt-4')
+        self._temperature = self.config.get('temperature', 0.7)
+        self._stream = self.config.get('stream', True)
+        self._system_prompt = self.config.get('system_prompt', '你是一个有帮助的AI助手。')
+        
+        context.log(f"Agent 节点初始化: 模型={self._model}")
+    
+    async def run(self, context: WorkflowContext):
         """
-        初始化 Agent
+        运行 Agent（持续处理流式数据）
         
         Args:
             context: 工作流执行上下文
         """
-        model = self.config.get('model', 'gpt-4')
-        temperature = self.config.get('temperature', 0.7)
-        stream = self.config.get('stream', True)
-        system_prompt = self.config.get('system_prompt', '你是一个有帮助的AI助手。')
-        
         context.log(f"Agent 节点启动 [{self.node_id}]")
-        context.log(f"  - 模型: {model}")
-        context.log(f"  - 温度: {temperature}")
-        context.log(f"  - 流式生成: {stream}")
-        context.log(f"  - 系统提示: {system_prompt}")
+        context.log(f"  - 模型: {self._model}")
+        context.log(f"  - 温度: {self._temperature}")
+        context.log(f"  - 流式生成: {self._stream}")
+        context.log(f"  - 系统提示: {self._system_prompt}")
         
         # 这里应该初始化语言模型
         # 例如：self.llm = init_llm(model, temperature, system_prompt)
@@ -219,4 +222,10 @@ class AgentNode(Node):
         
         # 这里可以根据播报状态进行相应的处理
         # 例如：更新对话状态、记录播报历史等
+    
+    async def shutdown(self):
+        """关闭 Agent（清理资源）"""
+        # 清理模型资源
+        # 例如：self.llm = None
+        pass
 

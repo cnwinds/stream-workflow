@@ -76,31 +76,34 @@ class TTSNode(Node):
         )
     }
     
-    def __init__(self, node_id, config, connection_manager=None):
-        super().__init__(node_id, config, connection_manager)
+    
+    async def initialize(self, context: WorkflowContext):
+        """初始化 TTS 引擎配置"""
+        # 初始化实例变量
         self._text_buffer = []  # 累积文本用于合成
         self._sentence_index = 0  # 当前句子索引
+        self._voice = self.config.get('voice', 'zh-CN-XiaoxiaoNeural')
+        self._speed = self.config.get('speed', 1.0)
+        self._pitch = self.config.get('pitch', 1.0)
+        self._audio_format = self.config.get('audio_format', 'opus')
+        
+        context.log(f"TTS 节点初始化: 音色={self._voice}")
     
-    async def execute_async(self, context: WorkflowContext):
+    async def run(self, context: WorkflowContext):
         """
-        初始化 TTS 引擎
+        运行 TTS 引擎（持续处理流式数据）
         
         Args:
             context: 工作流执行上下文
         """
-        voice = self.config.get('voice', 'zh-CN-XiaoxiaoNeural')
-        speed = self.config.get('speed', 1.0)
-        pitch = self.config.get('pitch', 1.0)
-        audio_format = self.config.get('audio_format', 'opus')
-        
         context.log(f"TTS 节点启动 [{self.node_id}]")
-        context.log(f"  - 音色: {voice}")
-        context.log(f"  - 语速: {speed}")
-        context.log(f"  - 音调: {pitch}")
-        context.log(f"  - 音频格式: {audio_format}")
+        context.log(f"  - 音色: {self._voice}")
+        context.log(f"  - 语速: {self._speed}")
+        context.log(f"  - 音调: {self._pitch}")
+        context.log(f"  - 音频格式: {self._audio_format}")
         
         # 这里应该初始化 TTS 引擎
-        # 例如：self.tts_engine = init_tts(voice, speed, pitch)
+        # 例如：self.tts_engine = init_tts(self._voice, self._speed, self._pitch)
         
         try:
             await asyncio.sleep(float('inf'))
@@ -161,7 +164,7 @@ class TTSNode(Node):
         # 示例：生成模拟音频数据
         audio_data = self._generate_mock_audio(text)
         audio_format = self.config.get('audio_format', 'opus')
-        
+        print('============', len(audio_data))
         # 发送音频 chunk
         await self.emit_chunk("audio_out", {
             "audio_data": audio_data,

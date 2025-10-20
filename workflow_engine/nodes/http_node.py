@@ -66,13 +66,23 @@ class HttpNode(Node):
         )
     }
     
-    def __init__(self, node_id, config, connection_manager=None):
-        super().__init__(node_id, config, connection_manager)
-        self._session: Optional[aiohttp.ClientSession] = None
     
-    async def execute_async(self, context: WorkflowContext):
+    async def initialize(self, context: WorkflowContext):
+        """初始化HTTP会话"""
+        # 初始化实例变量
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._session = aiohttp.ClientSession()
+        context.log(f"HTTP节点 {self.node_id} 初始化完成")
+    
+    async def run(self, context: WorkflowContext):
         """
-        执行HTTP请求
+        运行HTTP节点（通用接口）
+        """
+        return await self.execute(context)
+    
+    async def execute(self, context: WorkflowContext):
+        """
+        顺序执行HTTP请求（专门用于顺序执行调用）
         
         配置参数:
             - url: 请求URL
@@ -179,6 +189,11 @@ class HttpNode(Node):
     async def __aenter__(self):
         """支持异步上下文管理器"""
         return self
+    
+    async def shutdown(self):
+        """关闭HTTP会话"""
+        if self._session and not self._session.closed:
+            await self._session.close()
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """清理资源"""

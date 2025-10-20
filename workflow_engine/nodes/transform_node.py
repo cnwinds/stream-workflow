@@ -58,7 +58,7 @@ class TransformNode(Node):
         )
     }
     
-    async def execute_async(self, context: WorkflowContext) -> Any:
+    async def run(self, context: WorkflowContext) -> Any:
         """
         执行数据转换
         

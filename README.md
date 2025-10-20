@@ -81,11 +81,15 @@ engine.register_node_type('output', OutputNode)
 
 # 加载并执行工作流
 engine.load_config('my_workflow.yaml')
-context = engine.execute()
+context = await engine.start()
+await engine.execute()
 
 # 查看执行日志
 for log in context.get_logs():
     print(f"[{log['level']}] {log['message']}")
+
+# 停止工作流
+await engine.stop()
 ```
 
 ### 3. 运行示例
@@ -299,9 +303,17 @@ workflow:
 ✅ **支持嵌套** - 支持深层嵌套字段访问  
 ✅ **字符串模板** - 支持在字符串中嵌入引用
 
-### 完整文档
+## 📚 文档导航
 
-参见：[工作流引擎完整指南](docs/COMPLETE_GUIDE.md)
+根据你的用途，选择合适的文档：
+
+| 用途 | 推荐文档 | 说明 |
+|------|----------|------|
+| 🚀 **快速上手** | [QUICKSTART.md](QUICKSTART.md) | 5分钟快速入门指南 |
+| 📖 **使用工作流** | [USER_GUIDE.md](docs/USER_GUIDE.md) | 完整用户指南，包括配置、流式工作流、数据输入等 |
+| 🔧 **开发自定义节点** | [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) | 节点开发、异步编程、流式节点开发 |
+| 🏗️ **架构设计** | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 系统架构、核心组件、设计模式 |
+| 📝 **变更历史** | [CHANGELOG.md](docs/CHANGELOG.md) | 版本变更记录和技术债务 |
 
 ### 精简演示
 
@@ -330,7 +342,11 @@ class MyCustomNode(Node):
     
     EXECUTION_MODE = 'sequential'  # 或 'streaming' / 'hybrid'
     
-    async def execute_async(self, context: WorkflowContext):
+    async def initialize(self, context: WorkflowContext):
+        """节点初始化（可选）"""
+        context.log(f"初始化自定义节点: {self.node_id}")
+    
+    async def run(self, context: WorkflowContext):
         """
         执行节点逻辑
         
@@ -356,6 +372,10 @@ class MyCustomNode(Node):
         
         # 返回结果
         return result
+    
+    async def shutdown(self):
+        """节点关闭（可选）"""
+        pass
     
     async def _do_something(self, data, param1, param2):
         # 实现你的逻辑
@@ -431,7 +451,7 @@ async def main():
     auto_register_nodes(engine)
     
     engine.load_config('workflow_streaming.yaml')
-    context = await engine.execute_async()
+    context = await engine.start()
 
 asyncio.run(main())
 ```
@@ -459,7 +479,7 @@ class MyStreamNode(Node):
         )
     }
     
-    async def execute_async(self, context):
+    async def run(self, context):
         """初始化（持续运行）"""
         context.log("流式节点启动")
         await asyncio.sleep(float('inf'))
@@ -478,7 +498,7 @@ class MyStreamNode(Node):
             })
 ```
 
-详细开发指南请参考：[节点开发指南](docs/NODE_DEVELOPMENT_GUIDE.md)
+详细开发指南请参考：[开发者指南](docs/DEVELOPER_GUIDE.md)
 
 ## 📖 完整示例
 
@@ -531,7 +551,7 @@ workflow_engine/
 
 | 模式 | 描述 | 执行方式 | 典型应用 |
 |------|------|----------|----------|
-| **sequential** | 顺序执行节点 | 按拓扑顺序执行，执行完返回 | HTTP请求、数据库查询、数据转换 |
+| **sequential** | 顺序执行节点 | 按配置顺序执行，执行完返回 | HTTP请求、数据库查询、数据转换 |
 | **streaming** | 流式处理节点 | 数据驱动，实时响应 | 音频/视频处理、实时通信 |
 | **hybrid** | 混合模式节点 | 既有初始化逻辑，又能处理流式数据 | AI Agent（需要初始化+流式对话） |
 
@@ -588,7 +608,7 @@ python examples/run_hybrid_simple_example.py
 - ✅ **实时性**: 流式数据不等待非流式节点完成
 - ✅ **资源优化**: 并发执行，充分利用系统资源
 
-详细文档请参阅：[混合执行模式设计文档](docs/HYBRID_EXECUTION_MODE.md)
+详细文档请参阅：[开发者指南 - 混合执行模式](docs/DEVELOPER_GUIDE.md#🔀-混合节点开发)
 
 ## ⚙️ 高级特性
 
@@ -669,6 +689,51 @@ MIT License
 - **自动化任务**: 定时任务、批量处理
 - **业务流程**: 审批流程、状态机
 - **数据分析**: 数据采集、分析和报告生成
+
+## 🚀 新 API 使用
+
+### 启动和执行工作流
+
+```python
+# 启动工作流（准备执行环境，启动流式任务到后台）
+context = await engine.start()
+
+# 执行所有 sequential/hybrid 节点（按配置顺序）
+await engine.execute()
+
+# 或者传入运行时参数
+await engine.execute(url='https://api.com', message='你好')
+
+# 查看状态
+status = engine.get_status()
+print(f"工作流状态: {status}")
+
+# 停止工作流
+await engine.stop()
+```
+
+### 节点生命周期
+
+```python
+class MyNode(Node):
+    async def initialize(self, context):
+        """节点初始化（可选）"""
+        pass
+    
+    async def run(self, context):
+        """节点运行（必须实现）"""
+        return result
+    
+    async def execute(self, context):
+        """顺序执行接口（可选实现）"""
+        # 专门用于 sequential 和 hybrid 节点的顺序执行
+        # 如果实现了此方法，则优先使用；否则回退到 run 方法
+        return await self.run(context)
+    
+    async def shutdown(self):
+        """节点关闭（可选）"""
+        pass
+```
 
 ## 📞 联系方式
 

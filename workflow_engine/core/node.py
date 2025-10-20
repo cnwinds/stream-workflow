@@ -121,27 +121,30 @@ class Node(ABC):
             if param.is_streaming:
                 param.stream_queue = asyncio.Queue()
     
-    # 新架构：异步执行方法
-    async def execute_async(self, context: WorkflowContext) -> Any:
-        """
-        异步执行节点逻辑（子类实现）
-        
-        Args:
-            context: 工作流执行上下文
-            
-        Returns:
-            节点执行结果
-        """
-        # 默认实现：调用同步方法（向后兼容）
-        if hasattr(self, 'execute'):
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(None, self.execute, context)
-        raise NotImplementedError("子类必须实现 execute_async 或 execute 方法")
+    # ===== 生命周期方法 =====
     
-    # 旧架构：同步执行方法（保持向后兼容）
-    def execute(self, context: WorkflowContext) -> Any:
+    async def initialize(self, context: WorkflowContext):
         """
-        执行节点逻辑（旧架构，保持向后兼容）
+        节点初始化（可选，在run之前调用）
+        
+        子类可以重写此方法进行初始化工作，如：
+        - 加载模型
+        - 建立连接
+        - 预处理配置
+        
+        Args:
+            context: 工作流执行上下文
+        """
+        pass
+    
+    async def run(self, context: WorkflowContext) -> Any:
+        """
+        节点运行入口（子类必须实现）
+        
+        不同执行模式的行为：
+        - sequential: 执行完返回结果
+        - streaming: 持续运行，处理流式数据
+        - hybrid: 初始化后持续运行
         
         Args:
             context: 工作流执行上下文
@@ -149,7 +152,35 @@ class Node(ABC):
         Returns:
             节点执行结果
         """
-        raise NotImplementedError("子类必须实现 execute 或 execute_async 方法")
+        raise NotImplementedError("子类必须实现 run 方法")
+    
+    async def execute(self, context: WorkflowContext) -> Any:
+        """
+        顺序执行接口（子类可选实现）
+        
+        专门用于 sequential 和 hybrid 节点的顺序执行调用。
+        如果子类实现了此方法，则优先使用 execute 方法；
+        否则回退到 run 方法。
+        
+        Args:
+            context: 工作流执行上下文
+            
+        Returns:
+            节点执行结果
+        """
+        # 默认回退到 run 方法
+        return await self.run(context)
+    
+    async def shutdown(self):
+        """
+        节点关闭（可选，在stop时调用）
+        
+        子类可以重写此方法进行清理工作，如：
+        - 关闭连接
+        - 释放资源
+        - 保存状态
+        """
+        pass
     
     # 流式数据处理方法
     async def emit_chunk(self, param_name: str, chunk_data: Any):
@@ -492,7 +523,7 @@ class Node(ABC):
         return value if value is not None else default
     
     # 异步运行方法
-    async def run_async(self, context: WorkflowContext) -> Any:
+    async def _execute_async(self, context: WorkflowContext) -> Any:
         """
         异步运行节点（包含状态管理和错误处理）
         
@@ -502,11 +533,15 @@ class Node(ABC):
         Returns:
             节点执行结果
         """
+        if self.status == NodeStatus.RUNNING:
+            context.log(f"节点 {self.node_id} 正在运行中", level="WARNING")
+            return None
+        
         try:
             self.status = NodeStatus.RUNNING
             context.log(f"开始执行节点: {self.node_id}")
             
-            # 执行前解析配置中的参数引用
+            # 1. 执行前解析配置中的参数引用
             try:
                 self.resolved_config = self.resolve_config_params(context)
                 context.log(f"节点 {self.node_id} 配置参数解析完成")
@@ -514,10 +549,10 @@ class Node(ABC):
                 context.log(f"节点 {self.node_id} 配置参数解析失败: {e}", level="WARNING")
                 self.resolved_config = self.config.copy()
             
-            # 执行节点逻辑
-            result = await self.execute_async(context)
+            # 2. 执行节点逻辑（优先使用 execute 方法）
+            result = await self.execute(context)
             
-            # 保存输出到上下文（异步模式也需要保存）
+            # 3. 保存输出到上下文
             if result is not None:
                 context.set_node_output(self.node_id, result)
             
@@ -531,47 +566,6 @@ class Node(ABC):
             context.log(f"节点执行失败: {self.node_id} - {str(e)}", level="ERROR")
             raise NodeExecutionError(self.node_id, str(e), e)
     
-    # 同步运行方法（旧架构兼容）
-    def run(self, context: WorkflowContext) -> Any:
-        """
-        运行节点（旧架构兼容，包含状态管理和错误处理）
-        
-        Args:
-            context: 工作流执行上下文
-            
-        Returns:
-            节点执行结果
-        """
-        try:
-            self.status = NodeStatus.RUNNING
-            context.log(f"开始执行节点: {self.name} (ID: {self.node_id})")
-            
-            # 执行前解析配置中的参数引用
-            try:
-                self.resolved_config = self.resolve_config_params(context)
-                context.log(f"节点 {self.node_id} 配置参数解析完成")
-            except Exception as e:
-                context.log(f"节点 {self.node_id} 配置参数解析失败: {e}", level="WARNING")
-                self.resolved_config = self.config.copy()
-            
-            # 执行前验证
-            self.validate(context)
-            
-            # 执行节点逻辑
-            result = self.execute(context)
-            
-            # 保存输出到上下文
-            context.set_node_output(self.node_id, result)
-            
-            self.status = NodeStatus.SUCCESS
-            context.log(f"节点执行成功: {self.name} (ID: {self.node_id})")
-            
-            return result
-            
-        except Exception as e:
-            self.status = NodeStatus.FAILED
-            context.log(f"节点执行失败: {self.name} (ID: {self.node_id}) - {str(e)}", level="ERROR")
-            raise NodeExecutionError(self.node_id, str(e), e)
     
     def validate(self, context: WorkflowContext):
         """

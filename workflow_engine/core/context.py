@@ -1,8 +1,11 @@
 """工作流执行上下文"""
 
+import logging
 from typing import Any, Dict, Optional
 from datetime import datetime
 
+# 设置日志
+logger = logging.getLogger(__name__)
 
 class WorkflowContext:
     """
@@ -59,12 +62,7 @@ class WorkflowContext:
     
     def log(self, message: str, level: str = "INFO"):
         """记录日志"""
-        log_entry = {
-            'timestamp': datetime.now(),
-            'level': level,
-            'message': message
-        }
-        self._logs.append(log_entry)
+        logger.log(level, message)
     
     def get_logs(self) -> list:
         """获取所有日志"""

@@ -59,7 +59,7 @@ class OutputNode(Node):
         )
     }
     
-    async def execute_async(self, context: WorkflowContext) -> Any:
+    async def run(self, context: WorkflowContext) -> Any:
         """
         执行输出操作
         

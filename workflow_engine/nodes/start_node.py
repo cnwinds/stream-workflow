@@ -51,9 +51,17 @@ class StartNode(Node):
         )
     }
     
-    async def execute_async(self, context: WorkflowContext) -> Any:
+    async def run(self, context: WorkflowContext) -> Any:
         """
-        执行起始节点
+        运行起始节点（通用接口）
+        
+        返回配置中的初始数据或从全局变量获取数据
+        """
+        return await self.execute(context)
+    
+    async def execute(self, context: WorkflowContext) -> Any:
+        """
+        顺序执行起始节点（专门用于顺序执行调用）
         
         返回配置中的初始数据或从全局变量获取数据
         """

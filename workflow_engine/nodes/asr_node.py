@@ -60,24 +60,30 @@ class ASRNode(Node):
         )
     }
     
-    async def execute_async(self, context: WorkflowContext):
+    
+    async def initialize(self, context: WorkflowContext):
+        """初始化 ASR 模型配置"""
+        # 初始化实例变量
+        self._model = self.config.get('model', 'whisper')
+        self._language = self.config.get('language', 'zh')
+        self._stream_mode = self.config.get('stream_mode', True)
+        
+        context.log(f"ASR 节点初始化: 模型={self._model}")
+    
+    async def run(self, context: WorkflowContext):
         """
-        初始化 ASR 模型
+        运行 ASR 模型（持续处理流式数据）
         
         Args:
             context: 工作流执行上下文
         """
-        model = self.config.get('model', 'whisper')
-        language = self.config.get('language', 'zh')
-        stream_mode = self.config.get('stream_mode', True)
-        
         context.log(f"ASR 节点启动 [{self.node_id}]")
-        context.log(f"  - 模型: {model}")
-        context.log(f"  - 语言: {language}")
-        context.log(f"  - 流式模式: {stream_mode}")
+        context.log(f"  - 模型: {self._model}")
+        context.log(f"  - 语言: {self._language}")
+        context.log(f"  - 流式模式: {self._stream_mode}")
         
         # 这里应该初始化 ASR 模型
-        # 例如：self.asr_model = load_asr_model(model, language)
+        # 例如：self.asr_model = load_asr_model(self._model, self._language)
         
         try:
             await asyncio.sleep(float('inf'))

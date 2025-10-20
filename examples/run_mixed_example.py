@@ -40,8 +40,11 @@ async def main():
     print("  - 条件判断和数据转换")
     print("\n")
     
-    # 执行工作流
-    context = await engine.execute_async()
+    # 启动工作流（准备环境）
+    context = await engine.start()
+    
+    # 执行所有节点
+    await engine.execute()
     
     # 打印节点输出
     print("\n" + "="*60)

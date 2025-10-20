@@ -57,7 +57,7 @@ class VADNode(Node):
         )
     }
     
-    async def execute_async(self, context: WorkflowContext):
+    async def run(self, context: WorkflowContext):
         """
         主执行逻辑（初始化）
         

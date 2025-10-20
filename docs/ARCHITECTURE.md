@@ -405,8 +405,8 @@ class Node:
     outputs: Dict[str, Parameter]
     
     # 异步执行方法
-    async def execute_async(context) - 新架构异步执行
-    async def run_async(context) - 包含状态管理的异步运行
+    async def run(context) - 节点运行入口（必须实现）
+    async def execute(context) - 顺序执行接口（可选实现）
     
     # 流式数据处理
     async def emit_chunk(param_name, chunk_data) - 发送流式 chunk
@@ -438,13 +438,14 @@ class WorkflowEngine:
         - 创建 Connection 对象（自动验证参数匹配）
         - 关联流式连接的队列
     
-    # 异步执行工作流
-    async def execute_async(initial_data):
-        - 拓扑排序确定执行顺序
-        - 为流式输入启动消费任务（后台持续监听）
-        - 启动所有节点执行任务（并发）
+    # 启动和执行工作流
+    async def start(initial_data):
+        - 准备执行环境
+        - 启动流式任务到后台
+        
+    async def execute(**kwargs):
+        - 执行所有顺序节点（按配置顺序）
         - 等待任务完成或超时
-        - 清理：发送结束信号到所有队列
 ```
 
 ### 配置文件格式扩展
@@ -515,7 +516,7 @@ class VADNode(Node):
 流式节点通常持续运行，通过回调处理数据：
 
 ```python
-async def execute_async(self, context):
+async def run(self, context):
     """初始化（持续运行）"""
     context.log(f"VAD 节点启动")
     try:
