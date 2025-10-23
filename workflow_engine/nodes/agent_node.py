@@ -86,7 +86,7 @@ class AgentNode(Node):
         self._stream = self.config.get('stream', True)
         self._system_prompt = self.config.get('system_prompt', '你是一个有帮助的AI助手。')
         
-        context.log(f"Agent 节点初始化: 模型={self._model}")
+        context.log_info(f"Agent 节点初始化: 模型={self._model}")
     
     async def run(self, context: WorkflowContext):
         """
@@ -95,11 +95,11 @@ class AgentNode(Node):
         Args:
             context: 工作流执行上下文
         """
-        context.log(f"Agent 节点启动 [{self.node_id}]")
-        context.log(f"  - 模型: {self._model}")
-        context.log(f"  - 温度: {self._temperature}")
-        context.log(f"  - 流式生成: {self._stream}")
-        context.log(f"  - 系统提示: {self._system_prompt}")
+        context.log_info(f"Agent 节点启动 [{self.node_id}]")
+        context.log_info(f"  - 模型: {self._model}")
+        context.log_info(f"  - 温度: {self._temperature}")
+        context.log_info(f"  - 流式生成: {self._stream}")
+        context.log_info(f"  - 系统提示: {self._system_prompt}")
         
         # 这里应该初始化语言模型
         # 例如：self.llm = init_llm(model, temperature, system_prompt)
@@ -107,7 +107,7 @@ class AgentNode(Node):
         try:
             await asyncio.sleep(float('inf'))
         except asyncio.CancelledError:
-            context.log(f"Agent 节点关闭 [{self.node_id}]")
+            context.log_info(f"Agent 节点关闭 [{self.node_id}]")
     
     async def on_chunk_received(self, param_name: str, chunk: StreamChunk):
         """

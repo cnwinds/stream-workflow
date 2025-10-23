@@ -665,6 +665,106 @@ else:
 
 ---
 
+## 🔌 外部连接对接
+
+### 什么是外部连接？
+
+外部连接允许节点输出自动调用指定的外部函数：
+- **函数连接**：节点输出数据时，自动调用外部函数
+- **简单集成**：基于现有 Connection 系统，无需大幅修改
+- **灵活扩展**：支持同步/异步函数、多种处理方式
+
+### 基本使用
+
+```python
+from workflow_engine import WorkflowEngine
+
+# 创建工作流引擎
+engine = WorkflowEngine()
+
+# 加载工作流配置
+engine.load_config_dict(workflow_config)
+
+# 获取连接管理器
+connection_manager = engine.get_connection_manager()
+
+# 创建外部连接
+conn = connection_manager.create_external_connection(
+    "node_id", "output_param", 
+    output_schema, 
+    external_handler_function
+)
+# 添加到连接管理器
+connection_manager.add_connection(conn)
+```
+
+### 创建外部连接
+
+```python
+# 定义外部处理函数
+def my_handler(data):
+    print(f"收到数据: {data}")
+
+async def async_handler(data):
+    print(f"异步处理: {data}")
+
+# 获取节点的输出参数 Schema
+node = engine._nodes["my_node"]
+output_schema = node.outputs["output_param"].schema
+
+# 创建外部连接
+conn1 = connection_manager.create_external_connection(
+    "my_node", "output_param",
+    output_schema,
+    my_handler
+)
+connection_manager.add_connection(conn1)
+
+# 创建异步外部连接
+conn2 = connection_manager.create_external_connection(
+    "my_node", "output_param",
+    output_schema,
+    async_handler
+)
+connection_manager.add_connection(conn2)
+```
+
+### 多种处理方式
+
+```python
+# 打印处理
+def print_handler(data):
+    print(f"📤 收到数据: {data}")
+
+# JSON 处理
+def json_handler(data):
+    print(f"📄 JSON 数据: {json.dumps(data, ensure_ascii=False, indent=2)}")
+
+# 文件处理
+def file_handler(data):
+    filename = f"output_{int(time.time())}.json"
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"💾 数据已保存到: {filename}")
+
+# 创建多个外部连接
+conn1 = connection_manager.create_external_connection("node_id", "output", schema, print_handler)
+conn2 = connection_manager.create_external_connection("node_id", "output", schema, json_handler)
+conn3 = connection_manager.create_external_connection("node_id", "output", schema, file_handler)
+
+# 添加到连接管理器
+connection_manager.add_connection(conn1)
+connection_manager.add_connection(conn2)
+connection_manager.add_connection(conn3)
+```
+
+### 完整示例
+
+参考以下示例文件：
+- `examples/external_connection_example.py` - 基本外部连接使用
+
+---
+
 ## 📚 参考资源
 
 - **项目主页**: https://github.com/your-repo

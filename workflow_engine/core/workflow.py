@@ -3,12 +3,13 @@
 import asyncio
 import yaml
 import json
-from typing import Dict, Any, List, Type
+from typing import Dict, Any, List, Type, Callable
 from pathlib import Path
 from .node import Node, NodeStatus
 from .context import WorkflowContext
 from .exceptions import ConfigurationError, WorkflowException
 from .connection import Connection, ConnectionManager
+import logging
 
 class WorkflowEngine:
     """
@@ -123,24 +124,30 @@ class WorkflowEngine:
         """根据配置构建节点实例"""
         self._nodes.clear()
         
+        # 从全局注册表获取节点类型
+        from .node import get_registered_nodes
+        global_registry = get_registered_nodes()
+        
         workflow = self._workflow_config['workflow']
         
         for node_config in workflow['nodes']:
             node_id = node_config['id']
             node_type = node_config['type']
             
-            # 检查节点类型是否已注册
-            if node_type not in self._node_registry:
+            # 首先检查本地注册表，然后检查全局注册表
+            if node_type in self._node_registry:
+                node_class = self._node_registry[node_type]
+            elif node_type in global_registry:
+                node_class = global_registry[node_type]
+            else:
                 raise ConfigurationError(
                     f"未知的节点类型: '{node_type}' (节点ID: {node_id})"
                 )
             
             # 创建节点实例（传入连接管理器）
-            node_class = self._node_registry[node_type]
             node_instance = node_class(node_id, node_config, self._connection_manager)
             
             self._nodes[node_id] = node_instance
-            print(f"已创建节点: {node_id} (类型: {node_type})")
     
     def _build_connections(self):
         """构建参数连接并验证类型匹配（新架构）"""
@@ -182,28 +189,12 @@ class WorkflowEngine:
                     f"可用输入: {list(target_node.inputs.keys())}"
                 )
             
-            # 获取参数 schema
-            source_schema = source_node.outputs[source_param_name].schema
-            target_schema = target_node.inputs[target_param_name].schema
-            
-            # 创建连接（会自动验证参数结构匹配）
-            conn = Connection(
-                source_node_id, source_param_name,
-                target_node_id, target_param_name,
-                source_schema, target_schema
+            # 创建连接（会自动验证参数结构匹配和设置连接属性）
+            self._connection_manager.add_connection(
+                source_node_id, source_param_name, source_node,
+                target_node_id, target_param_name, target_node
             )
             
-            # 如果是流式连接，关联队列
-            if conn.is_streaming:
-                conn.target_queue = target_node.inputs[target_param_name].stream_queue
-            else:
-                # 如果是非流式连接，保存目标参数的引用
-                conn.target_param_ref = target_node.inputs[target_param_name]
-            
-            self._connection_manager.add_connection(conn)
-            
-            print(f"连接已建立: {source_node_id}.{source_param_name} -> "
-                  f"{target_node_id}.{target_param_name}")
     
     def _is_streaming_workflow(self) -> bool:
         """
@@ -274,8 +265,8 @@ class WorkflowEngine:
         
         workflow_name = self._workflow_config['workflow']['name']
         
-        context.log(f"开始启动工作流: {workflow_name}")
-        
+        context.log_info(f"开始启动工作流: {workflow_name}")
+
         try:
             # 1. 分类节点
             self._sequential_nodes = []  # 需要顺序执行的节点（sequential 和 hybrid）
@@ -284,37 +275,43 @@ class WorkflowEngine:
             for node_id, node in self._nodes.items():
                 if node.EXECUTION_MODE == 'streaming':
                     streaming_nodes.append(node_id)
-                    context.log(f"节点 {node_id} [流式模式]")
+                    context.log_info(f"节点 {node_id} [流式模式]")
                 elif node.EXECUTION_MODE == 'hybrid':
                     self._sequential_nodes.append(node_id)
-                    context.log(f"节点 {node_id} [混合模式]")
+                    context.log_info(f"节点 {node_id} [混合模式]")
                 else:  # sequential
                     self._sequential_nodes.append(node_id)
-                    context.log(f"节点 {node_id} [顺序模式]")
+                    context.log_info(f"节点 {node_id} [顺序模式]")
             
             # 2. 初始化所有节点
             for node_id, node in self._nodes.items():
                 try:
                     await node.initialize(context)
-                    context.log(f"节点 {node_id} 初始化完成")
+                    context.log_info(f"节点 {node_id} 初始化完成")
                 except Exception as e:
-                    context.log(f"节点 {node_id} 初始化失败: {e}", level="ERROR")
+                    context.log_error(f"节点 {node_id} 初始化失败: {e}")
                     raise
             
-            # 3. 为所有流式输入启动消费任务（后台异步运行）
+            # 3. 启动所有异步节点
+            for node_id, node in self._nodes.items():
+                if node.EXECUTION_MODE == 'streaming' or node.EXECUTION_MODE == 'hybrid':
+                    task = asyncio.create_task(node.run(context))
+                    self._stream_tasks.append(task)
+            
+            # 4. 为所有流式输入启动消费任务（后台异步运行）
             self._stream_tasks = []
             for node_id, node in self._nodes.items():
                 for param_name, param in node.inputs.items():
                     if param.is_streaming:
                         task = asyncio.create_task(node.consume_stream(param_name))
                         self._stream_tasks.append(task)
-                        context.log(f"启动流式消费: {node_id}.{param_name}")
-            
-            context.log(f"Sequential/Hybrid 节点: {', '.join(self._sequential_nodes)}")
-            context.log(f"工作流启动完成: {workflow_name}", level="SUCCESS")
+                        context.log_info(f"启动流式消费: {node_id}.{param_name}")
+
+            context.log_info(f"Sequential/Hybrid 节点: {', '.join(self._sequential_nodes)}")
+            context.log_info(f"工作流启动完成: {workflow_name}")
             
         except Exception as e:
-            context.log(f"工作流启动失败: {str(e)}", level="ERROR")
+            context.log_error(f"工作流启动失败: {str(e)}")
             raise
         
         return context
@@ -349,10 +346,10 @@ class WorkflowEngine:
                 await node.shutdown()
             except Exception as e:
                 if self._context:
-                    self._context.log(f"关闭节点 {node.node_id} 失败: {e}", level="ERROR")
+                    self._context.log_error(f"关闭节点 {node.node_id} 失败: {e}")
         
         if self._context:
-            self._context.log("工作流已停止", level="INFO")
+            self._context.log_info("工作流已停止")
     
     async def execute(self, **kwargs) -> None:
         """
@@ -374,7 +371,7 @@ class WorkflowEngine:
         workflow_config = self._workflow_config['workflow'].get('config', {})
         continue_on_error = workflow_config.get('continue_on_error', False)
         
-        self._context.log("开始执行所有 sequential/hybrid 节点")
+        self._context.log_info("开始执行所有 sequential/hybrid 节点")
         
         try:
             # 按配置顺序执行 sequential/hybrid 节点
@@ -393,20 +390,20 @@ class WorkflowEngine:
                     
                     # 传递非流式输出值到连接的下游节点
                     self._transfer_non_streaming_outputs(node)
-                    self._context.log(f"节点 {node_id} 执行完成")
+                    self._context.log_info(f"节点 {node_id} 执行完成")
                 except Exception as e:
                     # 确保恢复原配置
                     if 'original_config' in locals():
                         node.config = original_config
-                    self._context.log(f"节点 {node_id} 执行失败: {e}", level="ERROR")
+                    self._context.log_error(f"节点 {node_id} 执行失败: {e}")
                     if not continue_on_error:
                         raise
             
             workflow_name = self._workflow_config['workflow']['name']
-            self._context.log(f"工作流执行完成: {workflow_name}", level="SUCCESS")
+            self._context.log_info(f"工作流执行完成: {workflow_name}")
             
         except Exception as e:
-            self._context.log(f"工作流执行失败: {str(e)}", level="ERROR")
+            self._context.log_error(f"工作流执行失败: {str(e)}")
             raise
     
     def get_status(self) -> Dict[str, Any]:
@@ -453,3 +450,17 @@ class WorkflowEngine:
             'version': workflow.get('version', '1.0.0'),
             'node_count': len(self._nodes)
         }
+    
+    def add_external_connection(self, source_node: str, source_param: str, external_handler: Callable) -> bool:
+        """添加外部连接"""
+        node = self.get_node(source_node)
+        if not node:
+            return False
+        source_schema = node.outputs[source_param].schema
+        if not source_schema:
+            return False
+        return self._connection_manager.add_external_connection(source_node, source_param, source_schema, external_handler)
+    
+    def get_connection_manager(self) -> ConnectionManager:
+        """获取连接管理器"""
+        return self._connection_manager

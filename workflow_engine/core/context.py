@@ -20,13 +20,11 @@ class WorkflowContext:
         self._global_vars: Dict[str, Any] = {}
         # 执行开始时间
         self.start_time = datetime.now()
-        # 执行日志
-        self._logs: list = []
     
     def set_node_output(self, node_id: str, output: Any):
         """设置节点的输出"""
         self._node_outputs[node_id] = output
-        self.log(f"节点 '{node_id}' 输出已保存")
+        self.log_info(f"节点 '{node_id}' 输出已保存")
     
     def get_node_output(self, node_id: str, field: str = None) -> Any:
         """
@@ -59,15 +57,27 @@ class WorkflowContext:
     def get_global_var(self, key: str, default: Any = None) -> Any:
         """获取全局变量"""
         return self._global_vars.get(key, default)
-    
-    def log(self, message: str, level: str = "INFO"):
+
+    def _log(self, message: str, level):
         """记录日志"""
         logger.log(level, message)
     
-    def get_logs(self) -> list:
-        """获取所有日志"""
-        return self._logs
+    def log_error(self, message: str):
+        """记录错误日志"""
+        self._log(message, logging.ERROR)
     
+    def log_warning(self, message: str):
+        """记录警告日志"""
+        self._log(message, logging.WARNING)
+    
+    def log_info(self, message: str):
+        """记录信息日志"""
+        self._log(message, logging.INFO)
+    
+    def log_debug(self, message: str):
+        """记录信息日志"""
+        self._log(message, logging.DEBUG)
+
     def get_all_outputs(self) -> Dict[str, Any]:
         """获取所有节点的输出"""
         return self._node_outputs.copy()
@@ -76,7 +86,6 @@ class WorkflowContext:
         """清空上下文"""
         self._node_outputs.clear()
         self._global_vars.clear()
-        self._logs.clear()
         self.start_time = datetime.now()
     
     def _get_nested_value(self, data: Any, path: str) -> Any:

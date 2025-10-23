@@ -87,7 +87,7 @@ class TTSNode(Node):
         self._pitch = self.config.get('pitch', 1.0)
         self._audio_format = self.config.get('audio_format', 'opus')
         
-        context.log(f"TTS 节点初始化: 音色={self._voice}")
+        context.log_info(f"TTS 节点初始化: 音色={self._voice}")
     
     async def run(self, context: WorkflowContext):
         """
@@ -96,11 +96,11 @@ class TTSNode(Node):
         Args:
             context: 工作流执行上下文
         """
-        context.log(f"TTS 节点启动 [{self.node_id}]")
-        context.log(f"  - 音色: {self._voice}")
-        context.log(f"  - 语速: {self._speed}")
-        context.log(f"  - 音调: {self._pitch}")
-        context.log(f"  - 音频格式: {self._audio_format}")
+        context.log_info(f"TTS 节点启动 [{self.node_id}]")
+        context.log_info(f"  - 音色: {self._voice}")
+        context.log_info(f"  - 语速: {self._speed}")
+        context.log_info(f"  - 音调: {self._pitch}")
+        context.log_info(f"  - 音频格式: {self._audio_format}")
         
         # 这里应该初始化 TTS 引擎
         # 例如：self.tts_engine = init_tts(self._voice, self._speed, self._pitch)
@@ -108,7 +108,7 @@ class TTSNode(Node):
         try:
             await asyncio.sleep(float('inf'))
         except asyncio.CancelledError:
-            context.log(f"TTS 节点关闭 [{self.node_id}]")
+            context.log_info(f"TTS 节点关闭 [{self.node_id}]")
     
     async def on_chunk_received(self, param_name: str, chunk: StreamChunk):
         """

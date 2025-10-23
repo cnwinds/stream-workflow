@@ -114,13 +114,13 @@ class ConditionNode(Node):
             try:
                 # 评估条件表达式
                 if self._evaluate_condition(expression, merged_input):
-                    context.log(f"条件满足，选择分支: {branch}")
+                    context.log_info(f"条件满足，选择分支: {branch}")
                     selected_branch = branch
                     matched_condition = expression
                     matched = True
                     break
             except Exception as e:
-                context.log(f"条件评估失败: {expression} - {str(e)}", level="WARNING")
+                context.log_warning(f"条件评估失败: {expression} - {str(e)}")
         
         # 5. 设置输出值
         result = {
@@ -133,7 +133,7 @@ class ConditionNode(Node):
         self.set_output_value('output', result)
         
         if not matched:
-            context.log(f"所有条件都不满足，使用默认分支: {default_branch}")
+            context.log_info(f"所有条件都不满足，使用默认分支: {default_branch}")
         
         return result
     

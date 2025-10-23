@@ -70,7 +70,7 @@ class CalculatorNode(Node):
         else:
             result = base_value
         
-        context.log(f"计算: {base_value} {operation} {value} = {result}")
+        context.log_info(f"计算: {base_value} {operation} {value} = {result}")
         
         return {
             'operation': operation,
@@ -126,7 +126,7 @@ class FormatterNode(Node):
         else:
             formatted = calc_result
         
-        context.log(f"格式化完成: {format_type}")
+        context.log_info(f"格式化完成: {format_type}")
         
         return {
             'format': format_type,

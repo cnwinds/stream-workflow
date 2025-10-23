@@ -534,19 +534,19 @@ class Node(ABC):
             节点执行结果
         """
         if self.status == NodeStatus.RUNNING:
-            context.log(f"节点 {self.node_id} 正在运行中", level="WARNING")
+            context.log_warning(f"节点 {self.node_id} 正在运行中")
             return None
         
         try:
             self.status = NodeStatus.RUNNING
-            context.log(f"开始执行节点: {self.node_id}")
+            context.log_info(f"开始执行节点: {self.node_id}")
             
             # 1. 执行前解析配置中的参数引用
             try:
                 self.resolved_config = self.resolve_config_params(context)
-                context.log(f"节点 {self.node_id} 配置参数解析完成")
+                context.log_info(f"节点 {self.node_id} 配置参数解析完成")
             except Exception as e:
-                context.log(f"节点 {self.node_id} 配置参数解析失败: {e}", level="WARNING")
+                context.log_warning(f"节点 {self.node_id} 配置参数解析失败: {e}")
                 self.resolved_config = self.config.copy()
             
             # 2. 执行节点逻辑（优先使用 execute 方法）
@@ -557,13 +557,13 @@ class Node(ABC):
                 context.set_node_output(self.node_id, result)
             
             self.status = NodeStatus.SUCCESS
-            context.log(f"节点执行成功: {self.node_id}")
+            context.log_info(f"节点执行成功: {self.node_id}")
             
             return result
             
         except Exception as e:
             self.status = NodeStatus.FAILED
-            context.log(f"节点执行失败: {self.node_id} - {str(e)}", level="ERROR")
+            context.log_error(f"节点执行失败: {self.node_id} - {str(e)}")
             raise NodeExecutionError(self.node_id, str(e), e)
     
     

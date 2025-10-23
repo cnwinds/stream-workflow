@@ -72,7 +72,7 @@ class HttpNode(Node):
         # 初始化实例变量
         self._session: Optional[aiohttp.ClientSession] = None
         self._session = aiohttp.ClientSession()
-        context.log(f"HTTP节点 {self.node_id} 初始化完成")
+        context.log_info(f"HTTP节点 {self.node_id} 初始化完成")
     
     async def run(self, context: WorkflowContext):
         """
@@ -117,7 +117,7 @@ class HttpNode(Node):
         if not url:
             raise NodeExecutionError(self.node_id, "缺少必需参数: url")
         
-        context.log(f"发送 {method} 请求到: {url}")
+        context.log_info(f"发送 {method} 请求到: {url}")
         
         # 4. 发送异步HTTP请求
         try:
@@ -160,7 +160,7 @@ class HttpNode(Node):
                     'success': success
                 })
                 
-                context.log(f"HTTP请求成功，状态码: {status_code}")
+                context.log_info(f"HTTP请求成功，状态码: {status_code}")
                 
                 return {
                     'status_code': status_code,

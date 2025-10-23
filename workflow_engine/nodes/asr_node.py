@@ -68,7 +68,7 @@ class ASRNode(Node):
         self._language = self.config.get('language', 'zh')
         self._stream_mode = self.config.get('stream_mode', True)
         
-        context.log(f"ASR 节点初始化: 模型={self._model}")
+        context.log_info(f"ASR 节点初始化: 模型={self._model}")
     
     async def run(self, context: WorkflowContext):
         """
@@ -77,10 +77,10 @@ class ASRNode(Node):
         Args:
             context: 工作流执行上下文
         """
-        context.log(f"ASR 节点启动 [{self.node_id}]")
-        context.log(f"  - 模型: {self._model}")
-        context.log(f"  - 语言: {self._language}")
-        context.log(f"  - 流式模式: {self._stream_mode}")
+        context.log_info(f"ASR 节点启动 [{self.node_id}]")
+        context.log_info(f"  - 模型: {self._model}")
+        context.log_info(f"  - 语言: {self._language}")
+        context.log_info(f"  - 流式模式: {self._stream_mode}")
         
         # 这里应该初始化 ASR 模型
         # 例如：self.asr_model = load_asr_model(self._model, self._language)
@@ -88,7 +88,7 @@ class ASRNode(Node):
         try:
             await asyncio.sleep(float('inf'))
         except asyncio.CancelledError:
-            context.log(f"ASR 节点关闭 [{self.node_id}]")
+            context.log_info(f"ASR 节点关闭 [{self.node_id}]")
     
     async def on_chunk_received(self, param_name: str, chunk: StreamChunk):
         """

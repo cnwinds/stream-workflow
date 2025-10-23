@@ -96,7 +96,7 @@ class StartNode(Node):
             'global_var': global_var_key or ""
         })
         
-        context.log(f"起始节点返回数据: {initial_data}")
+        context.log_info(f"起始节点返回数据: {initial_data}")
         return {
             'data': initial_data,
             'source': source,

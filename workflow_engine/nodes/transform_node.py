@@ -132,7 +132,7 @@ class TransformNode(Node):
                 'success': True
             })
             
-            context.log(f"数据转换完成，操作类型: {operation}")
+            context.log_info(f"数据转换完成，操作类型: {operation}")
             return {
                 'result': result,
                 'operation': operation,

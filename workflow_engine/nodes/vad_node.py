@@ -67,16 +67,16 @@ class VADNode(Node):
         threshold = self.config.get('threshold', 0.5)
         min_duration = self.config.get('min_speech_duration', 0.3)
         
-        context.log(f"VAD 节点启动 [{self.node_id}]")
-        context.log(f"  - 检测阈值: {threshold}")
-        context.log(f"  - 最小语音持续时间: {min_duration}s")
+        context.log_info(f"VAD 节点启动 [{self.node_id}]")
+        context.log_info(f"  - 检测阈值: {threshold}")
+        context.log_info(f"  - 最小语音持续时间: {min_duration}s")
         
         # 流式节点通常持续运行，通过 on_chunk_received 处理数据
         # 这里保持运行状态
         try:
             await asyncio.sleep(float('inf'))
         except asyncio.CancelledError:
-            context.log(f"VAD 节点关闭 [{self.node_id}]")
+            context.log_info(f"VAD 节点关闭 [{self.node_id}]")
     
     async def on_chunk_received(self, param_name: str, chunk: StreamChunk):
         """

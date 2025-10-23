@@ -110,10 +110,10 @@ class OutputNode(Node):
             formatted_output = output_data
         
         # 5. 打印输出
-        context.log("=" * 50)
-        context.log("工作流输出:")
-        context.log(str(formatted_output))
-        context.log("=" * 50)
+        context.log_info("=" * 50)
+        context.log_info("工作流输出:")
+        context.log_info(str(formatted_output))
+        context.log_info("=" * 50)
         
         # 6. 保存到文件
         saved = False
@@ -124,10 +124,10 @@ class OutputNode(Node):
                         f.write(formatted_output)
                     else:
                         json.dump(formatted_output, f, indent=2, ensure_ascii=False)
-                context.log(f"输出已保存到文件: {file_path}")
+                context.log_info(f"输出已保存到文件: {file_path}")
                 saved = True
             except Exception as e:
-                context.log(f"保存文件失败: {str(e)}", level="ERROR")
+                context.log_error(f"保存文件失败: {str(e)}")
                 saved = False
         
         # 7. 设置输出值

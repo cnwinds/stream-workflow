@@ -87,7 +87,7 @@ class MergeNode(Node):
             input_data = self.get_input_data(context)
         
         if not input_data:
-            context.log("没有输入数据，返回空字典")
+            context.log_info("没有输入数据，返回空字典")
             result = {}
             input_count = 0
         else:
@@ -112,7 +112,7 @@ class MergeNode(Node):
             'input_count': input_count
         })
         
-        context.log(f"使用策略 '{strategy}' 合并了 {input_count} 个输入")
+        context.log_info(f"使用策略 '{strategy}' 合并了 {input_count} 个输入")
         return {
             'result': result,
             'strategy': strategy,
