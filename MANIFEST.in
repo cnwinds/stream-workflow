@@ -1,0 +1,14 @@
+# 包含所有Python源文件
+recursive-include workflow_engine *.py
+
+# 包含文档文件
+include README.md
+include QUICKSTART.md
+include requirements.txt
+
+# 包含示例文件
+recursive-include examples *.py
+recursive-include examples *.yaml
+
+# 包含文档目录
+recursive-include docs *.md
