@@ -222,14 +222,14 @@ class Node(ABC):
             raise ValueError(f"未知输入参数: {param_name}")
         
         param = self.inputs[param_name]
-        try:
-            while True:
-                chunk = await param.stream_queue.get()
-                if chunk is None:  # 结束信号
-                    break
+        while True:
+            chunk = await param.stream_queue.get()
+            if chunk is None:  # 结束信号
+                break
+            try:
                 await self.on_chunk_received(param_name, chunk)
-        except Exception as e:
-            print(f"[{self.node_id}] 流式消费异常: {e}")
+            except Exception as e:
+                print(f"[{self.node_id}] 流式消费异常: {e}")
     
     async def on_chunk_received(self, param_name: str, chunk: StreamChunk):
         """
