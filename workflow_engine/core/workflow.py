@@ -299,7 +299,6 @@ class WorkflowEngine:
                     self._stream_tasks.append(task)
             
             # 4. 为所有流式输入启动消费任务（后台异步运行）
-            self._stream_tasks = []
             for node_id, node in self._nodes.items():
                 for param_name, param in node.inputs.items():
                     if param.is_streaming:
