@@ -18,7 +18,7 @@
 所有自定义节点都必须继承 `Node` 基类：
 
 ```python
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, register_node
 from typing import Any
 
 @register_node('my_custom')  # 使用装饰器自动注册
@@ -135,7 +135,7 @@ ParameterSchema(
 
 ```python
 import aiohttp
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
 
 @register_node('http')
 class HttpNode(Node):
@@ -224,7 +224,7 @@ class HttpNode(Node):
 ### 流式节点结构
 
 ```python
-from workflow_engine.core import Node, ParameterSchema, StreamChunk, WorkflowContext, register_node
+from stream_workflow.core import Node, ParameterSchema, StreamChunk, WorkflowContext, register_node
 import asyncio
 
 @register_node('audio_processor')
@@ -429,7 +429,7 @@ class AgentNode(Node):
 
 #### 1. Parameter System (参数系统)
 
-**文件**: `workflow_engine/core/parameter.py`
+**文件**: `stream_workflow/core/parameter.py`
 
 ```python
 class ParameterSchema:
@@ -455,7 +455,7 @@ class Parameter:
 
 #### 2. Connection System (连接系统)
 
-**文件**: `workflow_engine/core/connection.py`
+**文件**: `stream_workflow/core/connection.py`
 
 ```python
 class Connection:
@@ -478,7 +478,7 @@ class ConnectionManager:
 
 #### 3. Node Base Class (节点基类)
 
-**文件**: `workflow_engine/core/node.py`
+**文件**: `stream_workflow/core/node.py`
 
 ```python
 class Node(ABC):
@@ -512,7 +512,7 @@ class Node(ABC):
 
 #### 4. WorkflowEngine (工作流引擎)
 
-**文件**: `workflow_engine/core/workflow.py`
+**文件**: `stream_workflow/core/workflow.py`
 
 ```python
 class WorkflowEngine:
@@ -629,7 +629,7 @@ def _get_execution_order(self, node_ids):
 ### 方式 1：装饰器注册（推荐）
 
 ```python
-from workflow_engine.core import register_node
+from stream_workflow.core import register_node
 
 @register_node('my_node')
 class MyNode(Node):
@@ -645,7 +645,7 @@ for node_type, node_class in get_registered_nodes().items():
 ### 方式 2：手动注册
 
 ```python
-from workflow_engine import WorkflowEngine
+from stream_workflow import WorkflowEngine
 from my_nodes import MyCustomNode
 
 engine = WorkflowEngine()
@@ -655,8 +655,8 @@ engine.register_node_type('my_custom', MyCustomNode)
 ### 方式 3：自动注册
 
 ```python
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import auto_register_nodes
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import auto_register_nodes
 
 engine = WorkflowEngine()
 auto_register_nodes(engine)  # 自动注册所有内置节点
@@ -706,7 +706,7 @@ auto_register_nodes(engine)  # 自动注册所有内置节点
 
 ```python
 import pytest
-from workflow_engine.core import WorkflowContext
+from stream_workflow.core import WorkflowContext
 
 @pytest.mark.asyncio
 async def test_my_node():
@@ -765,7 +765,7 @@ async def test_workflow():
 
 ## 📚 参考资源
 
-- **源代码**: `workflow_engine/` 目录
+- **源代码**: `stream_workflow/` 目录
 - **示例代码**: `examples/` 目录
 - **用户指南**: `USER_GUIDE.md`
 - **变更历史**: `CHANGELOG.md`

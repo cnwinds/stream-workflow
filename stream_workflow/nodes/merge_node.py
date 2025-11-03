@@ -1,7 +1,7 @@
 """合并节点"""
 
 from typing import Any, Dict, List
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, register_node
 
 @register_node('merge_node')
 class MergeNode(Node):

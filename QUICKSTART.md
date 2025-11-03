@@ -44,8 +44,8 @@ workflow:
 #### 2. 创建执行脚本 `run_hello.py`
 
 ```python
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import StartNode, OutputNode
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import StartNode, OutputNode
 
 # 创建引擎
 engine = WorkflowEngine()
@@ -148,7 +148,7 @@ workflow:
 ### 简单的自定义节点
 
 ```python
-from workflow_engine.core import Node, WorkflowContext
+from stream_workflow.core import Node, WorkflowContext
 
 class GreetingNode(Node):
     """问候节点"""

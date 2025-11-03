@@ -2,7 +2,7 @@
 
 import json
 from typing import Any
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, register_node
 
 @register_node('output_node')
 class OutputNode(Node):
@@ -54,7 +54,7 @@ class OutputNode(Node):
                 "result": "any",
                 "format": "string",
                 "saved": "boolean",
-                "file_path": "string"
+                "file_path": "any"  # 允许None
             }
         )
     }

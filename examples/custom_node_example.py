@@ -13,9 +13,9 @@ from typing import Any
 # 添加父目录到路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from workflow_engine import WorkflowEngine
-from workflow_engine.core import Node, WorkflowContext, register_node
-from workflow_engine.nodes import StartNode, OutputNode
+from stream_workflow import WorkflowEngine
+from stream_workflow.core import Node, WorkflowContext, register_node
+from stream_workflow.nodes import StartNode, OutputNode
 
 
 @register_node('calculator')
@@ -31,7 +31,7 @@ class CalculatorNode(Node):
     
     EXECUTION_MODE = 'sequential'
     
-    async def execute_async(self, context: WorkflowContext) -> Any:
+    async def run(self, context: WorkflowContext) -> Any:
         """执行计算"""
         # ✨ 使用简化的 get_config() API
         operation = self.get_config('config.operation') or self.get_config('operation')
@@ -93,7 +93,7 @@ class FormatterNode(Node):
     
     EXECUTION_MODE = 'sequential'
     
-    async def execute_async(self, context: WorkflowContext) -> Any:
+    async def run(self, context: WorkflowContext) -> Any:
         """格式化数据"""
         # ✨ 使用简化的 get_config() API
         format_type = self.get_config('config.format') or self.get_config('format', 'json')

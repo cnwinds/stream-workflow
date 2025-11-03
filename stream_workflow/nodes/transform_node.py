@@ -1,7 +1,7 @@
 """数据转换节点"""
 
 from typing import Any, Dict
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
 
 @register_node('transform_node')
 class TransformNode(Node):

@@ -28,8 +28,8 @@ def auto_register_nodes(engine):
         engine: WorkflowEngine 实例
         
     Example:
-        from workflow_engine import WorkflowEngine
-        from workflow_engine.nodes import auto_register_nodes
+        from stream_workflow import WorkflowEngine
+        from stream_workflow.nodes import auto_register_nodes
         
         engine = WorkflowEngine()
         auto_register_nodes(engine)

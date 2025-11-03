@@ -12,8 +12,8 @@ import json
 # 添加父目录到路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import StartNode, TransformNode, ConditionNode, OutputNode
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import StartNode, TransformNode, ConditionNode, OutputNode
 
 
 async def main():
@@ -63,15 +63,21 @@ async def main():
     report = context.get_node_output('report')
     if report and 'result' in report:
         result = report['result']
-        print(f"学生: {result.get('student')}")
-        print(f"分数: {result.get('score')}")
-        print(f"等级: {result.get('grade')}")
-        print(f"状态: {result.get('status')}")
-        
-        if result.get('grade') == 'good' and result.get('score') == 85:
-            print("\n[PASS] 混合流程和参数引用功能正常工作")
+        # 提取数据
+        if isinstance(result, dict) and 'data' in result:
+            data = result['data']
+            branch = result.get('branch', '')
+            print(f"学生: {data.get('student')}")
+            print(f"分数: {data.get('score')}")
+            print(f"等级: {branch}")
+            print(f"状态: {'matched' if result.get('matched') else 'unmatched'}")
+            
+            if branch == 'good' and data.get('score') == 85:
+                print("\n[PASS] 混合流程和参数引用功能正常工作")
+            else:
+                print(f"\n[WARN] 结果不符合预期: branch={branch}, score={data.get('score')}")
         else:
-            print("\n[WARN] 结果不符合预期")
+            print(f"[WARN] 输出格式不符合预期: {result}")
     
     print("\n" + "="*60)
     print("演示完成！")

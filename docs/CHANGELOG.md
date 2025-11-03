@@ -38,17 +38,17 @@
 
 #### ✅ 核心架构修改
 
-**1. Node 基类扩展** (`workflow_engine/core/node.py`)
+**1. Node 基类扩展** (`stream_workflow/core/node.py`)
 - 添加 `EXECUTION_MODE` 类属性
 - 支持三种执行模式：`sequential`、`streaming`、`hybrid`
 
-**2. Connection 系统增强** (`workflow_engine/core/connection.py`)
+**2. Connection 系统增强** (`stream_workflow/core/connection.py`)
 - 添加连接分类功能
 - 新增 `_streaming_connections` 和 `_data_connections` 属性
 - 实现自动连接分类：根据 `is_streaming` 属性
 - 新增 `get_streaming_connections()` 和 `get_data_connections()` 方法
 
-**3. WorkflowEngine 重构** (`workflow_engine/core/workflow.py`)
+**3. WorkflowEngine 重构** (`stream_workflow/core/workflow.py`)
 - 重写工作流执行方法，实现混合执行模式
   - 分类节点：sequential/hybrid vs streaming
   - 启动所有流式消费任务（后台运行）
@@ -250,18 +250,18 @@ class NodeClass(Node):
 
 #### ✅ 核心功能
 
-**1. 参数系统** (`workflow_engine/core/parameter.py`)
+**1. 参数系统** (`stream_workflow/core/parameter.py`)
 
 - `ParameterSchema`: 参数结构定义和验证
 - `StreamChunk`: 流式数据块封装
 - `Parameter`: 参数实例管理
 
-**2. 连接系统** (`workflow_engine/core/connection.py`)
+**2. 连接系统** (`stream_workflow/core/connection.py`)
 
 - `Connection`: 参数级连接定义
 - `ConnectionManager`: 连接管理和数据路由
 
-**3. 节点基类扩展** (`workflow_engine/core/node.py`)
+**3. 节点基类扩展** (`stream_workflow/core/node.py`)
 
 - 多端口输入输出支持
 - 流式数据处理方法
@@ -299,18 +299,18 @@ connections:
 
 #### ✅ 核心功能
 
-**1. 工作流引擎** (`workflow_engine/core/workflow.py`)
+**1. 工作流引擎** (`stream_workflow/core/workflow.py`)
 - 配置文件解析（YAML/JSON）
 - 节点类型注册
 - 拓扑排序
 - 工作流执行
 
-**2. 节点基类** (`workflow_engine/core/node.py`)
+**2. 节点基类** (`stream_workflow/core/node.py`)
 - 节点接口定义
 - 状态管理
 - 输入输出处理
 
-**3. 执行上下文** (`workflow_engine/core/context.py`)
+**3. 执行上下文** (`stream_workflow/core/context.py`)
 - 节点输出存储
 - 全局变量管理
 - 日志记录

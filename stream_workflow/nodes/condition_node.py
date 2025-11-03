@@ -1,7 +1,7 @@
 """条件判断节点"""
 
 from typing import Any, Dict
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
 
 @register_node('condition_node')
 class ConditionNode(Node):
@@ -95,7 +95,11 @@ class ConditionNode(Node):
             merged_input = {}
             for node_id, data in input_data.items():
                 if isinstance(data, dict):
-                    merged_input.update(data)
+                    # 如果数据包含result字段（来自transform节点），展平它
+                    if 'result' in data and isinstance(data['result'], dict):
+                        merged_input.update(data['result'])
+                    else:
+                        merged_input.update(data)
                 else:
                     merged_input['value'] = data
         

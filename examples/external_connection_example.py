@@ -13,9 +13,9 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import auto_register_nodes
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, register_node
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import auto_register_nodes
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, register_node
 
 
 # 自定义节点

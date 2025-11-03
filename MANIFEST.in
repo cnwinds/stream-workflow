@@ -1,5 +1,5 @@
 # 包含所有Python源文件
-recursive-include workflow_engine *.py
+recursive-include stream_workflow *.py
 
 # 包含文档文件
 include README.md

@@ -3,7 +3,7 @@
 import aiohttp
 import asyncio
 from typing import Any, Dict, Optional
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
 
 
 @register_node('http')

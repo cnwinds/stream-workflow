@@ -53,7 +53,7 @@
 
 ### 1. Node (节点基类)
 
-**位置**: `workflow_engine/core/node.py`
+**位置**: `stream_workflow/core/node.py`
 
 **职责**:
 - 定义节点的基本接口和行为
@@ -77,7 +77,7 @@ class Node(ABC):
 
 ### 2. WorkflowContext (执行上下文)
 
-**位置**: `workflow_engine/core/context.py`
+**位置**: `stream_workflow/core/context.py`
 
 **职责**:
 - 存储节点输出结果
@@ -101,7 +101,7 @@ class WorkflowContext:
 
 ### 3. WorkflowEngine (工作流引擎)
 
-**位置**: `workflow_engine/core/workflow.py`
+**位置**: `stream_workflow/core/workflow.py`
 
 **职责**:
 - 注册和管理节点类型
@@ -240,7 +240,7 @@ catch Exception:
 ### 创建自定义节点
 
 ```python
-from workflow_engine.core import Node, WorkflowContext
+from stream_workflow.core import Node, WorkflowContext
 
 class MyNode(Node):
     def execute(self, context: WorkflowContext):
@@ -336,7 +336,7 @@ TransformNode 和 ConditionNode 使用 `eval()` 执行自定义表达式，已�
 
 #### 1. 参数系统 (Parameter System)
 
-**文件**: `workflow_engine/core/parameter.py`
+**文件**: `stream_workflow/core/parameter.py`
 
 提供参数定义、Schema 和验证功能：
 
@@ -366,7 +366,7 @@ class Parameter:
 
 #### 2. 连接系统 (Connection System)
 
-**文件**: `workflow_engine/core/connection.py`
+**文件**: `stream_workflow/core/connection.py`
 
 管理参数间的连接和数据路由：
 
@@ -390,7 +390,7 @@ class ConnectionManager:
 
 #### 3. 节点基类扩展
 
-**文件**: `workflow_engine/core/node.py`
+**文件**: `stream_workflow/core/node.py`
 
 节点基类增加多端口和异步支持：
 
@@ -424,7 +424,7 @@ class Node:
 
 #### 4. 工作流引擎扩展
 
-**文件**: `workflow_engine/core/workflow.py`
+**文件**: `stream_workflow/core/workflow.py`
 
 引擎增加连接管理和异步执行：
 
@@ -550,7 +550,7 @@ engine.register_node_type('my_node', MyNode)
 
 #### 2. 自动注册
 ```python
-from workflow_engine.nodes import auto_register_nodes
+from stream_workflow.nodes import auto_register_nodes
 auto_register_nodes(engine)
 ```
 

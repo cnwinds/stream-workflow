@@ -26,7 +26,7 @@
 ```bash
 # 克隆仓库
 git clone <repository-url>
-cd workflow_engine
+cd stream-workflow
 
 # 安装依赖
 pip install -r requirements.txt
@@ -35,8 +35,8 @@ pip install -r requirements.txt
 ### 基本使用
 
 ```python
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import auto_register_nodes
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import auto_register_nodes
 
 # 创建工作流引擎
 engine = WorkflowEngine()
@@ -329,8 +329,8 @@ workflow:
 
 ```python
 import asyncio
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import auto_register_nodes
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import auto_register_nodes
 
 async def send_audio_stream():
     # 创建引擎并加载配置
@@ -677,7 +677,7 @@ else:
 ### 基本使用
 
 ```python
-from workflow_engine import WorkflowEngine
+from stream_workflow import WorkflowEngine
 
 # 创建工作流引擎
 engine = WorkflowEngine()

@@ -1,7 +1,7 @@
 """起始节点"""
 
 from typing import Any
-from workflow_engine.core import Node, ParameterSchema, WorkflowContext, register_node
+from stream_workflow.core import Node, ParameterSchema, WorkflowContext, register_node
 
 @register_node('start_node')
 class StartNode(Node):

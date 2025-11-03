@@ -24,4 +24,4 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["workflow_engine", "workflow_engine.core", "workflow_engine.nodes"]
+packages = ["stream_workflow", "stream_workflow.core", "stream_workflow.nodes"]

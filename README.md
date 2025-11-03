@@ -22,7 +22,7 @@
 ```bash
 # 克隆仓库
 git clone <repository-url>
-cd workflow_engine
+cd stream-workflow
 
 # 安装依赖
 pip install -r requirements.txt
@@ -68,8 +68,8 @@ workflow:
 ### 2. 编写执行代码
 
 ```python
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import StartNode, TransformNode, OutputNode
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import StartNode, TransformNode, OutputNode
 
 # 创建引擎实例
 engine = WorkflowEngine()
@@ -334,7 +334,7 @@ workflow:
 创建自定义节点非常简单，只需继承 `Node` 基类并实现 `run` 方法：
 
 ```python
-from workflow_engine.core import Node, WorkflowContext, register_node
+from stream_workflow.core import Node, WorkflowContext, register_node
 
 @register_node('my_custom')  # 使用装饰器自动注册
 class MyCustomNode(Node):
@@ -443,8 +443,8 @@ workflow:
 
 ```python
 import asyncio
-from workflow_engine import WorkflowEngine
-from workflow_engine.nodes import auto_register_nodes
+from stream_workflow import WorkflowEngine
+from stream_workflow.nodes import auto_register_nodes
 
 async def main():
     engine = WorkflowEngine()
@@ -459,7 +459,7 @@ asyncio.run(main())
 ### 开发流式节点
 
 ```python
-from workflow_engine.core import Node, ParameterSchema, StreamChunk, register_node
+from stream_workflow.core import Node, ParameterSchema, StreamChunk, register_node
 import asyncio
 
 @register_node('my_stream_node')
@@ -515,7 +515,7 @@ class MyStreamNode(Node):
 ## 🏗️ 架构设计
 
 ```
-workflow_engine/
+stream_workflow/
 ├── core/
 │   ├── node.py           # 节点基类
 │   ├── context.py        # 执行上下文
