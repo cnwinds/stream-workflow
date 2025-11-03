@@ -7,12 +7,6 @@ from .condition_node import ConditionNode
 from .merge_node import MergeNode
 from .output_node import OutputNode
 
-# 新架构：流式节点
-from .vad_node import VADNode
-from .asr_node import ASRNode
-from .agent_node import AgentNode
-from .tts_node import TTSNode
-
 
 # 内置节点字典（用于自动注册）
 BUILTIN_NODES = {
@@ -22,12 +16,7 @@ BUILTIN_NODES = {
     'http': HttpNode,
     'transform': TransformNode,
     'condition': ConditionNode,
-    'merge': MergeNode,
-    # 新架构流式节点
-    'vad_node': VADNode,
-    'asr_node': ASRNode,
-    'agent_node': AgentNode,
-    'tts_node': TTSNode,
+    'merge': MergeNode
 }
 
 
@@ -58,11 +47,6 @@ __all__ = [
     'ConditionNode',
     'MergeNode',
     'OutputNode',
-    # 新架构流式节点
-    'VADNode',
-    'ASRNode',
-    'AgentNode',
-    'TTSNode',
     # 工具函数
     'BUILTIN_NODES',
     'auto_register_nodes'
