@@ -6,17 +6,18 @@ from .transform_node import TransformNode
 from .condition_node import ConditionNode
 from .merge_node import MergeNode
 from .output_node import OutputNode
+from .variable import VariableNode
 
 
 # 内置节点字典（用于自动注册）
 BUILTIN_NODES = {
-    # 旧架构节点
     'start': StartNode,
     'output': OutputNode,
     'http': HttpNode,
     'transform': TransformNode,
     'condition': ConditionNode,
-    'merge': MergeNode
+    'merge': MergeNode,
+    'variable': VariableNode
 }
 
 
@@ -47,6 +48,7 @@ __all__ = [
     'ConditionNode',
     'MergeNode',
     'OutputNode',
+    'VariableNode',
     # 工具函数
     'BUILTIN_NODES',
     'auto_register_nodes'
