@@ -1,22 +1,12 @@
 """内置节点模块"""
 
-from .start_node import StartNode
 from .http_node import HttpNode
-from .transform_node import TransformNode
-from .condition_node import ConditionNode
-from .merge_node import MergeNode
-from .output_node import OutputNode
 from .variable import VariableNode
 
 
 # 内置节点字典（用于自动注册）
 BUILTIN_NODES = {
-    'start': StartNode,
-    'output': OutputNode,
     'http': HttpNode,
-    'transform': TransformNode,
-    'condition': ConditionNode,
-    'merge': MergeNode,
     'variable': VariableNode
 }
 
@@ -42,12 +32,7 @@ def auto_register_nodes(engine):
 
 __all__ = [
     # 旧架构节点
-    'StartNode',
     'HttpNode',
-    'TransformNode',
-    'ConditionNode',
-    'MergeNode',
-    'OutputNode',
     'VariableNode',
     # 工具函数
     'BUILTIN_NODES',

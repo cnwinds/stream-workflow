@@ -5,7 +5,7 @@ from stream_workflow.core import Node, ParameterSchema, register_node, WorkflowC
 
 @register_node('variable_node')
 class VariableNode(Node):
-    """设置全局变量"""
+    """将节点配置的内容设置到全局变量中"""
     
     EXECUTION_MODE = 'sequential'
     

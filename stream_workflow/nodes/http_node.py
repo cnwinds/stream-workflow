@@ -38,12 +38,12 @@ class HttpNode(Node):
     """
     
     # 节点执行模式：顺序执行，任务驱动，非流式
-    EXECUTION_MODE = 'sequential'
+    EXECUTION_MODE = 'streaming'
     
     # 定义输入输出参数结构
     INPUT_PARAMS = {
         "request": ParameterSchema(
-            is_streaming=False,
+            is_streaming=True,
             schema={
                 "url": "string",
                 "method": "string",
@@ -56,7 +56,7 @@ class HttpNode(Node):
     
     OUTPUT_PARAMS = {
         "response": ParameterSchema(
-            is_streaming=False,
+            is_streaming=True,
             schema={
                 "status_code": "integer",
                 "body": "any",  # 可以是 dict、string 等

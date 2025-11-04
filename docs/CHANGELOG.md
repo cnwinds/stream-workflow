@@ -4,6 +4,32 @@
 
 ---
 
+## 版本 1.0.2 (2025-01-XX)
+
+### 🔧 代码清理和优化
+
+**变更内容**：
+- 删除不再使用的内置节点：`output_node`, `transform_node`, `merge_node`, `start_node`, `condition_node`
+- 精简内置节点列表，现在仅包含：`http`, `variable`
+- 修复包安装配置，确保从 Git 安装时正确包含所有文件
+- 优化 `pyproject.toml` 配置，使用自动包发现机制
+- 实现内置节点默认自动加载功能
+- 新增 `VariableNode`，用于在工作流启动时设置全局变量
+
+**技术改进**：
+- 改进 `WorkflowEngine` 初始化，支持自动加载内置节点
+- 修复 `condition_node` 对 transform 节点输出的处理逻辑
+- 修复 `output_node` 的 `file_path` 字段类型验证问题
+
+**API变更**：
+- `WorkflowEngine.__init__()` 新增 `auto_load_builtin_nodes` 参数（默认为 `True`）
+
+**破坏性变更**：
+- 移除了以下内置节点：`output`, `transform`, `merge`, `start`, `condition`
+- 用户需要自定义这些节点或使用其他替代方案
+
+---
+
 ## 版本 2.0.0 (2025-10-20)
 
 ### 📚 文档整合

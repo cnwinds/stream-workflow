@@ -17,7 +17,13 @@ class WorkflowEngine:
     负责解析配置、管理节点、执行工作流
     """
     
-    def __init__(self):
+    def __init__(self, auto_load_builtin_nodes: bool = True):
+        """
+        初始化工作流引擎
+        
+        Args:
+            auto_load_builtin_nodes: 是否自动加载内置节点，默认为 True
+        """
         # 注册的节点类型字典 {节点类型名: 节点类}
         self._node_registry: Dict[str, Type[Node]] = {}
         # 当前加载的工作流配置
@@ -34,6 +40,20 @@ class WorkflowEngine:
         self._stream_tasks: List[asyncio.Task] = []
         # sequential/hybrid 节点列表
         self._sequential_nodes: List[str] = []
+        
+        # 自动加载内置节点
+        if auto_load_builtin_nodes:
+            self._load_builtin_nodes()
+    
+    def _load_builtin_nodes(self):
+        """自动加载所有内置节点"""
+        try:
+            from ..nodes import BUILTIN_NODES
+            for node_type, node_class in BUILTIN_NODES.items():
+                self.register_node_type(node_type, node_class)
+        except ImportError:
+            # 如果导入失败，静默忽略（可能是节点模块未安装）
+            pass
     
     def register_node_type(self, node_type: str, node_class: Type[Node]):
         """
