@@ -67,7 +67,6 @@ class WorkflowEngine:
             raise ValueError(f"节点类 {node_class} 必须继承自 Node 基类")
         
         self._node_registry[node_type] = node_class
-        print(f"已注册节点类型: {node_type} -> {node_class.__name__}")
     
     def load_config(self, config_path: str):
         """
@@ -91,7 +90,6 @@ class WorkflowEngine:
         else:
             raise ConfigurationError(f"不支持的配置文件格式: {config_file.suffix}")
         
-        print(f"已加载配置文件: {config_path}")
         self._validate_config()
         self._build_nodes()
         self._build_connections()  # 新架构：构建连接
@@ -174,7 +172,6 @@ class WorkflowEngine:
         connections = self._workflow_config['workflow'].get('connections', [])
         
         if not connections:
-            print("配置中没有定义连接，跳过连接构建")
             return
         
         for conn_config in connections:

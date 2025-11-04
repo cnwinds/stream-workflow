@@ -35,7 +35,7 @@ class VariableNode(Node):
         # 遍历配置中的所有键值对，设置到全局变量
         for key, value in config_dict.items():
             context.set_global_var(key, value)
-            context.log_info(f"设置全局变量: {key} = {value}")
+            context.log_debug(f"设置全局变量: {key} = {value}")
 
     async def run(self, context):
         """节点执行逻辑"""

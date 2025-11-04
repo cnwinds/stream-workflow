@@ -74,6 +74,8 @@ class ConnectionManager:
         self._external_connections: List[Connection] = []
         # 索引：(source_node, source_param) -> [Connection]
         self._source_index: Dict[Tuple[str, str], List[Connection]] = {}
+        # 目标索引：(target_node, target_param) -> [Connection]（用于反向查询）
+        self._target_index: Dict[Tuple[str, str], List[Connection]] = {}
     
     def _add_connection(self, conn: Connection):
         """
@@ -92,10 +94,15 @@ class ConnectionManager:
         else:
             self._data_connections.append(conn)
         
-        # 建立索引
+        # 建立源索引
         if conn.source not in self._source_index:
             self._source_index[conn.source] = []
         self._source_index[conn.source].append(conn)
+        
+        # 建立目标索引（用于反向查询）
+        if conn.target not in self._target_index:
+            self._target_index[conn.target] = []
+        self._target_index[conn.target].append(conn)
     
     async def route_chunk(self, source_node: str, source_param: str, chunk: StreamChunk):
         """
@@ -231,4 +238,72 @@ class ConnectionManager:
     
     def __repr__(self):
         return f"ConnectionManager(connections={len(self._connections)}, streaming={len(self._streaming_connections)}, data={len(self._data_connections)}, external={len(self._external_connections)})"
+
+    def get_connected_nodes(self, node_id: str, param_name: str, is_output: bool = True) -> List[Dict[str, Any]]:
+        """
+        获取连接到指定节点参数的节点和参数列表
+        
+        Args:
+            node_id: 节点 ID
+            param_name: 参数名称（连接名称）
+            is_output: 是否为输出参数（True=输出参数，False=输入参数）
+            
+        Returns:
+            连接列表，每个连接是一个字典：
+            - 如果 is_output=True: 返回目标节点信息
+              [{"target_node": "node_id", "target_param": "param_name", "is_streaming": bool, "is_external": bool}, ...]
+            - 如果 is_output=False: 返回源节点信息
+              [{"source_node": "node_id", "source_param": "param_name", "is_streaming": bool, "is_external": bool}, ...]
+            
+        Example:
+            # 获取节点A的输出参数"output"连接到的所有节点
+            connections = manager.get_connected_nodes("node_a", "output", is_output=True)
+            # 返回: [{"target_node": "node_b", "target_param": "input", "is_streaming": False, "is_external": False}, ...]
+            
+            # 获取节点B的输入参数"input"是从哪些节点连接的
+            connections = manager.get_connected_nodes("node_b", "input", is_output=False)
+            # 返回: [{"source_node": "node_a", "source_param": "output", "is_streaming": False, "is_external": False}, ...]
+        """
+        result = []
+        
+        if is_output:
+            # 查找从该节点该输出参数出发的所有连接
+            connections = self._source_index.get((node_id, param_name), [])
+            for conn in connections:
+                if conn.is_external:
+                    result.append({
+                        "target_node": "external",
+                        "target_param": "handler",
+                        "is_streaming": conn.is_streaming,
+                        "is_external": True,
+                        "handler_name": conn.external_handler.__name__ if conn.external_handler else None
+                    })
+                else:
+                    result.append({
+                        "target_node": conn.target[0],
+                        "target_param": conn.target[1],
+                        "is_streaming": conn.is_streaming,
+                        "is_external": False
+                    })
+        else:
+            # 查找所有连接到该节点该输入参数的连接（使用目标索引）
+            connections = self._target_index.get((node_id, param_name), [])
+            for conn in connections:
+                if conn.is_external:
+                    result.append({
+                        "source_node": conn.source[0],
+                        "source_param": conn.source[1],
+                        "is_streaming": conn.is_streaming,
+                        "is_external": True,
+                        "handler_name": conn.external_handler.__name__ if conn.external_handler else None
+                    })
+                else:
+                    result.append({
+                        "source_node": conn.source[0],
+                        "source_param": conn.source[1],
+                        "is_streaming": conn.is_streaming,
+                        "is_external": False
+                    })
+        
+        return result
 

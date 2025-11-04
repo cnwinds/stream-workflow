@@ -4,6 +4,35 @@
 
 ---
 
+## 版本 1.0.3 (2025-01-XX)
+
+### 🆕 新增功能
+
+**连接查询工具**：
+- 新增 `ConnectionManager.get_connected_nodes()` 方法
+  - 支持通过节点ID和参数名查询连接的节点和参数
+  - 支持查询输出参数连接到的目标节点（`is_output=True`）
+  - 支持查询输入参数连接的源节点（`is_output=False`）
+  - 支持外部连接的识别和查询
+  - 返回连接的详细信息，包括流式连接标识
+
+**技术改进**：
+- 添加目标索引 `_target_index` 到 `ConnectionManager`，优化反向查询性能
+- 改进 `_add_connection()` 方法，自动建立目标索引
+
+**使用示例**：
+```python
+# 查询输出参数的连接
+connections = manager.get_connected_nodes("node_a", "output", is_output=True)
+# 返回: [{"target_node": "node_b", "target_param": "input", "is_streaming": False, ...}, ...]
+
+# 查询输入参数的连接
+connections = manager.get_connected_nodes("node_b", "input", is_output=False)
+# 返回: [{"source_node": "node_a", "source_param": "output", "is_streaming": False, ...}, ...]
+```
+
+---
+
 ## 版本 1.0.2 (2025-01-XX)
 
 ### 🔧 代码清理和优化
