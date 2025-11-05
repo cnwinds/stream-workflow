@@ -18,8 +18,7 @@ except ImportError:
 
 @register_node('timer_node')
 class TimerNode(Node):
-    """
-    定时器节点
+    """定时器节点
     
     功能：按配置的周期定时触发目标节点
     

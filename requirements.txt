@@ -10,6 +10,9 @@ requests>=2.28.0  # 同步HTTP请求（备用）
 # 定时任务支持
 croniter>=2.0.0  # Cron表达式解析（TimerNode需要）
 
+# 数据库支持
+aiomysql>=0.2.0  # 异步MySQL客户端（MysqlNode需要）
+
 # 可选：更好的YAML支持
 ruamel.yaml>=0.17.0
 
