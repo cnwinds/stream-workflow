@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from stream_workflow.core import Node, ParameterSchema, WorkflowContext, NodeExecutionError, register_node
 
 
-@register_node('http')
+@register_node('http_node')
 class HttpNode(Node):
     """
     HTTP请求节点（异步非流式）

@@ -1,13 +1,15 @@
 """内置节点模块"""
 
 from .http_node import HttpNode
-from .variable import VariableNode
+from .variable_node import VariableNode
+from .timer_node import TimerNode
 
 
 # 内置节点字典（用于自动注册）
 BUILTIN_NODES = {
-    'http': HttpNode,
-    'variable': VariableNode
+    'http_node': HttpNode,
+    'variable_node': VariableNode,
+    'timer_node': TimerNode
 }
 
 
@@ -34,6 +36,7 @@ __all__ = [
     # 旧架构节点
     'HttpNode',
     'VariableNode',
+    'TimerNode',
     # 工具函数
     'BUILTIN_NODES',
     'auto_register_nodes'

@@ -274,11 +274,14 @@ class WorkflowEngine:
         context = WorkflowContext()
         self._context = context
         self._running = True
-        
+
         # 设置初始数据
         if initial_data:
             for key, value in initial_data.items():
                 context.set_global_var(key, value)
+        
+        # 设置引擎实例到上下文
+        context.set_global_var('engine', self)
         
         workflow_name = self._workflow_config['workflow']['name']
         

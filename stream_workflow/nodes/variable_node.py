@@ -42,3 +42,4 @@ class VariableNode(Node):
 
         # 返回输出
         return {}
+

@@ -9,8 +9,8 @@ from .exceptions import ConfigurationError
 class Connection:
     """参数连接定义"""
     
-    def __init__(self, source_node: str, source_param: str,
-                 target_node: str, target_param: str,
+    def __init__(self, source_node_id: str, source_param: str,
+                 target_node_id: str, target_param: str,
                  source_schema: ParameterSchema, target_schema: ParameterSchema):
         """
         初始化连接
@@ -26,8 +26,8 @@ class Connection:
         Raises:
             ConfigurationError: 参数结构不匹配
         """
-        self.source = (source_node, source_param)
-        self.target = (target_node, target_param)
+        self.source = (source_node_id, source_param)
+        self.target = (target_node_id, target_param)
         self.source_schema = source_schema
         self.target_schema = target_schema
         self.is_streaming = source_schema.is_streaming
