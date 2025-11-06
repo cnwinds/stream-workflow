@@ -8,8 +8,7 @@ from stream_workflow.core import Node, ParameterSchema, WorkflowContext, NodeExe
 
 @register_node('http_node')
 class HttpNode(Node):
-    """
-    HTTP请求节点（异步非流式）
+    """HTTP请求节点（异步非流式）
     
     功能：发送HTTP请求并获取响应
     
