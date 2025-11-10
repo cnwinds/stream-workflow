@@ -1,7 +1,7 @@
 """
-混合流程参数引用示例
+Jinja2 模板解析示例
 
-演示混合执行模式和参数引用功能
+演示 Jinja2 模板引擎在工作流中的使用
 """
 
 import sys
@@ -13,71 +13,115 @@ import json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from stream_workflow import WorkflowEngine
-from stream_workflow.nodes import StartNode, TransformNode, ConditionNode, OutputNode
 
 
 async def main():
     # 创建工作流引擎
     engine = WorkflowEngine()
     
-    # 注册节点类型
-    engine.register_node_type('start_node', StartNode)
-    engine.register_node_type('transform_node', TransformNode)
-    engine.register_node_type('condition_node', ConditionNode)
-    engine.register_node_type('output_node', OutputNode)
+    # 创建简单的工作流配置，演示 Jinja2 模板功能
+    workflow_config = {
+        'workflow': {
+            'name': 'Jinja2 模板示例',
+            'description': '演示 Jinja2 模板引擎的使用',
+            'version': '1.0.0',
+            'nodes': [
+                {
+                    'id': 'init_data',
+                    'type': 'variable_node',
+                    'name': '初始化数据',
+                    'config': {
+                        'user': {
+                            'profile': {
+                                'user_name': 'kity',
+                                'age': 25
+                            },
+                            'score': 85
+                        },
+                        'base_url': 'https://api.example.com'
+                    }
+                }
+            ]
+        }
+    }
     
     # 加载配置
-    config_path = os.path.join(os.path.dirname(__file__), 'workflow_mixed_example.yaml')
-    engine.load_config(config_path)
+    engine.load_config_dict(workflow_config)
     
     print("\n" + "="*60)
-    print("混合流程参数引用示例")
+    print("Jinja2 模板解析示例")
     print("="*60)
     print("\n演示功能：")
-    print("  - 混合执行模式（顺序 + 流式）")
-    print("  - 参数引用功能（${node_id.field}）")
-    print("  - 节点间数据传递")
-    print("  - 条件判断和数据转换")
+    print("  - Jinja2 模板引擎集成")
+    print("  - 全局变量注入")
+    print("  - 嵌套字典点号访问")
+    print("  - 模板渲染接口")
     print("\n")
     
-    # 启动工作流（准备环境）
-    context = await engine.start()
+    # 准备初始全局数据
+    initial_data = {
+        'user': {
+            'profile': {
+                'user_name': 'kity',
+                'age': 25
+            },
+            'score': 85
+        },
+        'base_url': 'https://api.example.com'
+    }
     
-    # 执行所有节点
+    # 启动工作流（准备环境，注入全局变量）
+    context = await engine.start(initial_data=initial_data)
+    
+    # 执行节点（初始化全局变量）
     await engine.execute()
     
-    # 打印节点输出
+    # 演示 Jinja2 模板渲染
     print("\n" + "="*60)
-    print("节点输出结果：")
+    print("Jinja2 模板渲染示例：")
     print("="*60)
     
-    for node_id, output in context.get_all_outputs().items():
-        print(f"\n节点 '{node_id}':")
-        print(json.dumps(output, indent=2, ensure_ascii=False))
+    # 示例1: 访问全局变量
+    template1 = "用户名称: {{ c.user.profile.user_name }}"
+    result1 = engine.render_template(template1)
+    print(f"\n模板: {template1}")
+    print(f"结果: {result1}")
     
-    # 验证结果
+    # 示例2: 访问嵌套字段
+    template2 = "用户 {{ c.user.profile.user_name }} 的年龄是 {{ c.user.profile.age }} 岁，分数是 {{ c.user.score }}"
+    result2 = engine.render_template(template2)
+    print(f"\n模板: {template2}")
+    print(f"结果: {result2}")
+    
+    # 示例3: 使用 API URL
+    template3 = "API地址: {{ c.base_url }}/users/{{ c.user.profile.user_name }}"
+    result3 = engine.render_template(template3)
+    print(f"\n模板: {template3}")
+    print(f"结果: {result3}")
+    
+    # 示例4: 传入额外变量
+    template4 = "Hello {{ name }}, your score is {{ c.user.score }}"
+    result4 = engine.render_template(template4, name="World")
+    print(f"\n模板: {template4}")
+    print(f"结果: {result4}")
+    
+    # 示例5: 使用 Jinja2 表达式
+    template5 = "总分: {{ c.user.score * 2 }}"
+    result5 = engine.render_template(template5)
+    print(f"\n模板: {template5}")
+    print(f"结果: {result5}")
+    
+    # 打印全局变量（过滤掉不可序列化的对象）
     print("\n" + "="*60)
-    print("验证结果：")
+    print("全局变量：")
     print("="*60)
-    
-    report = context.get_node_output('report')
-    if report and 'result' in report:
-        result = report['result']
-        # 提取数据
-        if isinstance(result, dict) and 'data' in result:
-            data = result['data']
-            branch = result.get('branch', '')
-            print(f"学生: {data.get('student')}")
-            print(f"分数: {data.get('score')}")
-            print(f"等级: {branch}")
-            print(f"状态: {'matched' if result.get('matched') else 'unmatched'}")
-            
-            if branch == 'good' and data.get('score') == 85:
-                print("\n[PASS] 混合流程和参数引用功能正常工作")
-            else:
-                print(f"\n[WARN] 结果不符合预期: branch={branch}, score={data.get('score')}")
-        else:
-            print(f"[WARN] 输出格式不符合预期: {result}")
+    global_vars = context.get_all_global_vars()
+    # 过滤掉 engine 等不可序列化的对象
+    serializable_vars = {
+        k: v for k, v in global_vars.items() 
+        if k != 'engine' and not hasattr(v, '__call__')
+    }
+    print(json.dumps(serializable_vars, indent=2, ensure_ascii=False))
     
     print("\n" + "="*60)
     print("演示完成！")

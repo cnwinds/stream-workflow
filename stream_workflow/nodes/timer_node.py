@@ -81,9 +81,6 @@ class TimerNode(Node):
         
         为每个配置的目标节点创建独立的定时任务
         """
-        # 从 context 获取 engine
-        engine = context.get_global_var('engine')
-        
         # 获取配置
         config_dict = self.get_config('config', {})
         if not isinstance(config_dict, dict):
@@ -103,7 +100,7 @@ class TimerNode(Node):
         context.log_info(f"定时器节点 {self.node_id} 发现 {len(target_configs)} 个目标节点")
         
         # 构建目标节点输入参数名称缓存
-        self._build_input_param_cache(engine, list(target_configs.keys()), context)
+        self._build_input_param_cache(list(target_configs.keys()), context)
         
         # 为每个目标节点创建独立的定时任务
         for target_node_id, target_config in target_configs.items():
@@ -116,7 +113,7 @@ class TimerNode(Node):
             
             # 创建定时任务
             task = asyncio.create_task(
-                self._trigger_loop(context, engine, target_node_id, interval, data)
+                self._trigger_loop(context, target_node_id, interval, data)
             )
             self._tasks.add(task)
             context.log_info(f"已为目标节点 {target_node_id} 创建定时任务，周期: {interval}")
@@ -127,14 +124,13 @@ class TimerNode(Node):
         except asyncio.CancelledError:
             context.log_info(f"定时器节点 {self.node_id} 所有任务已取消")
     
-    async def _trigger_loop(self, context: WorkflowContext, engine, 
+    async def _trigger_loop(self, context: WorkflowContext, 
                             target_node_id: str, interval: str, data: Dict[str, Any]):
         """
         定时触发循环
         
         Args:
             context: 工作流上下文
-            engine: 工作流引擎
             target_node_id: 目标节点ID
             interval: 触发周期配置
             data: 触发消息数据
@@ -186,7 +182,7 @@ class TimerNode(Node):
                 }
                 
                 # 获取目标节点
-                target_node = engine.get_node(target_node_id)
+                target_node = self.engine.get_node(target_node_id)
                 if not target_node:
                     context.log_error(f"目标节点 {target_node_id} 不存在")
                     continue
@@ -266,7 +262,7 @@ class TimerNode(Node):
         
         return False
     
-    def _build_input_param_cache(self, engine, target_node_ids: list, context: WorkflowContext):
+    def _build_input_param_cache(self, target_node_ids: list, context: WorkflowContext):
         """
         构建目标节点输入参数名称缓存
         
@@ -276,11 +272,10 @@ class TimerNode(Node):
         3. 否则使用默认值 "input"
         
         Args:
-            engine: 工作流引擎
             target_node_ids: 目标节点ID列表
             context: 工作流上下文（用于日志）
         """
-        connection_manager = engine.get_connection_manager()
+        connection_manager = self.engine.get_connection_manager()
         connections = connection_manager.get_connected_nodes(self.node_id, "trigger", is_output=True)
         
         # 构建连接映射：target_node_id -> target_param
@@ -299,7 +294,7 @@ class TimerNode(Node):
                 continue
             
             # 策略2: 从目标节点的INPUT_PARAMS中获取第一个输入参数
-            target_node = engine.get_node(target_node_id)
+            target_node = self.engine.get_node(target_node_id)
             if target_node and target_node.inputs:
                 first_input = next(iter(target_node.inputs.keys()), None)
                 if first_input:

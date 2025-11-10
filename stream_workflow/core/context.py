@@ -82,6 +82,10 @@ class WorkflowContext:
         """获取所有节点的输出"""
         return self._node_outputs.copy()
     
+    def get_all_global_vars(self) -> Dict[str, Any]:
+        """获取所有全局变量"""
+        return self._global_vars.copy()
+    
     def clear(self):
         """清空上下文"""
         self._node_outputs.clear()

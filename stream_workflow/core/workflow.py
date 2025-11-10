@@ -3,13 +3,15 @@
 import asyncio
 import yaml
 import json
-from typing import Dict, Any, List, Type, Callable
+from typing import Dict, Any, List, Type, Callable, Optional
 from pathlib import Path
 from .node import Node, NodeStatus
 from .context import WorkflowContext
 from .exceptions import ConfigurationError, WorkflowException
 from .connection import Connection, ConnectionManager
 import logging
+
+from jinja2 import Environment, Template, TemplateError
 
 class WorkflowEngine:
     """
@@ -40,6 +42,8 @@ class WorkflowEngine:
         self._stream_tasks: List[asyncio.Task] = []
         # sequential/hybrid 节点列表
         self._sequential_nodes: List[str] = []
+        # Jinja2 模板环境
+        self._jinja_env: Optional[Environment] = None
         
         # 自动加载内置节点
         if auto_load_builtin_nodes:
@@ -162,8 +166,8 @@ class WorkflowEngine:
                     f"未知的节点类型: '{node_type}' (节点ID: {node_id})"
                 )
             
-            # 创建节点实例（传入连接管理器）
-            node_instance = node_class(node_id, node_config, self._connection_manager)
+            # 创建节点实例（传入引擎实例）
+            node_instance = node_class(node_id, node_config, self)
             
             self._nodes[node_id] = node_instance
     
@@ -282,6 +286,9 @@ class WorkflowEngine:
         
         # 设置引擎实例到上下文
         context.set_global_var('engine', self)
+        
+        # 初始化 Jinja2 环境并注入变量
+        self._init_jinja_env(context)
         
         workflow_name = self._workflow_config['workflow']['name']
         
@@ -409,6 +416,8 @@ class WorkflowEngine:
                     
                     # 传递非流式输出值到连接的下游节点
                     self._transfer_non_streaming_outputs(node)
+                    # 更新 Jinja2 环境中的节点输出
+                    self._update_jinja_nodes(self._context)
                     self._context.log_info(f"节点 {node_id} 执行完成")
                 except Exception as e:
                     # 确保恢复原配置
@@ -483,3 +492,159 @@ class WorkflowEngine:
     def get_connection_manager(self) -> ConnectionManager:
         """获取连接管理器"""
         return self._connection_manager
+    
+    def _create_dict_accessor(self, data: Dict[str, Any]):
+        """
+        创建字典访问器，支持点号访问嵌套字段（不复制数据，直接访问原始字典）
+        
+        Args:
+            data: 字典数据
+            
+        Returns:
+            DictAccessor 实例
+        """
+        class DictAccessor:
+            """字典访问器，支持点号访问，直接访问原始字典"""
+            def __init__(self, data: Dict[str, Any]):
+                # 直接保存原始字典的引用，不复制
+                object.__setattr__(self, '_data', data)
+            
+            def __getitem__(self, key: str) -> Any:
+                value = self._data.get(key)
+                if isinstance(value, dict):
+                    return DictAccessor(value)
+                return value
+            
+            def __getattr__(self, key: str) -> Any:
+                value = self._data.get(key)
+                if isinstance(value, dict):
+                    return DictAccessor(value)
+                return value
+            
+            def __repr__(self):
+                return repr(self._data)
+        
+        return DictAccessor(data)
+    
+    def _create_node_accessor(self, context: WorkflowContext):
+        """
+        创建节点输出访问器
+        
+        Args:
+            context: 工作流执行上下文
+            
+        Returns:
+            NodeOutputAccessor 实例
+        """
+        # 保存 self 的引用，以便在内部类中使用
+        engine_self = self
+        
+        class NodeOutputAccessor:
+            """动态访问节点输出的辅助类"""
+            def __init__(self, context: WorkflowContext):
+                self._context = context
+            
+            def __getitem__(self, node_id: str):
+                """通过 node_id 访问节点输出"""
+                output = self._context.get_node_output(node_id)
+                if output is None:
+                    # 返回一个空字典，避免访问不存在的节点时出错
+                    return {}
+                # 如果输出是字典，返回一个可以访问属性的对象
+                if isinstance(output, dict):
+                    return engine_self._create_dict_accessor(output)
+                return output
+        
+        return NodeOutputAccessor(context)
+    
+    def _init_jinja_env(self, context: WorkflowContext):
+        """
+        初始化 Jinja2 环境并注入全局变量和节点输出访问
+        
+        Args:
+            context: 工作流执行上下文
+        """
+        # 创建 Jinja2 环境
+        self._jinja_env = Environment()
+        
+        # 创建节点输出访问器实例
+        nodes_accessor = self._create_node_accessor(context)
+        
+        # 定义辅助函数：get_node_output
+        def get_node_output(node_id: str, field: str = None) -> Any:
+            """获取节点输出的辅助函数"""
+            return context.get_node_output(node_id, field)
+        
+        # 定义全局变量访问器类，通过方法动态访问，不复制数据
+        class ContextAccessor:
+            """全局变量访问器，支持点号访问嵌套字典"""
+            def __init__(self, context: WorkflowContext, engine):
+                self._context = context
+                self._engine = engine
+            
+            def __getattr__(self, key: str):
+                """通过属性访问全局变量"""
+                value = self._context.get_global_var(key)
+                if value is None:
+                    # 如果变量不存在，返回 None 而不是抛出异常
+                    return None
+                if isinstance(value, dict):
+                    # 对于字典类型，创建访问器以支持点号访问
+                    return self._engine._create_dict_accessor(value)
+                return value
+        
+        context_accessor = ContextAccessor(context, self)
+        
+        self._jinja_env.globals['nodes'] = nodes_accessor
+        self._jinja_env.globals['get_node_output'] = get_node_output
+        self._jinja_env.globals['context'] = context_accessor
+        self._jinja_env.globals['c'] = context_accessor
+        self._jinja_env.globals['engine'] = self
+    
+    def _update_jinja_nodes(self, context: WorkflowContext):
+        """
+        更新 Jinja2 环境中的 nodes 字典
+        
+        当节点执行后，需要调用此方法更新节点输出访问器
+        
+        Args:
+            context: 工作流执行上下文
+        """
+        if self._jinja_env is None:
+            return
+        
+        # 重新创建节点输出访问器（因为节点输出可能已更新）
+        nodes_accessor = self._create_node_accessor(context)
+        self._jinja_env.globals['nodes'] = nodes_accessor
+    
+    def render_template(self, template_str: str, **kwargs) -> str:
+        """
+        使用 Jinja2 渲染模板字符串
+        
+        Args:
+            template_str: 模板字符串
+            **kwargs: 额外的变量（会与全局变量合并）
+            
+        Returns:
+            渲染后的字符串
+            
+        Raises:
+            WorkflowException: 如果 Jinja2 环境未初始化或渲染失败
+            
+        Examples:
+            result = engine.render_template("API地址: {{ base_url }}/users")
+            result = engine.render_template("Hello {{ name }}", name="World")
+        """
+        if self._jinja_env is None:
+            raise WorkflowException("Jinja2 环境未初始化，请先调用 start() 方法")
+        
+        try:
+            template = self._jinja_env.from_string(template_str)
+            # 合并额外变量（kwargs 会覆盖全局变量中的同名变量）
+            render_vars = dict(self._jinja_env.globals)
+            render_vars.update(kwargs)
+            return template.render(**render_vars)
+        except TemplateError as e:
+            raise WorkflowException(f"Jinja2 模板渲染失败: {str(e)}")
+        except Exception as e:
+            raise WorkflowException(f"模板渲染出错: {str(e)}")

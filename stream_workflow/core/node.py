@@ -6,11 +6,12 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .context import WorkflowContext
-from .exceptions import NodeExecutionError
+from .exceptions import NodeExecutionError, WorkflowException
 from .parameter import Parameter, ParameterSchema, StreamChunk
 
 if TYPE_CHECKING:
     from .connection import ConnectionManager
+    from .workflow import WorkflowEngine
 
 
 # 全局节点注册表（用于装饰器注册）
@@ -77,26 +78,25 @@ class Node(ABC):
     OUTPUT_PARAMS: Dict[str, ParameterSchema] = {}
     
     def __init__(self, node_id: str, config: Dict[str, Any], 
-                 connection_manager: Optional['ConnectionManager'] = None):
+                 engine: Optional['WorkflowEngine'] = None):
         """
         初始化节点
         
         Args:
             node_id: 节点唯一标识符
             config: 节点配置字典
-            connection_manager: 连接管理器（用于流式数据路由）
+            engine: 工作流引擎实例（用于获取连接管理器等）
         """
         self.node_id = node_id
         self.config = config
-        self.connection_manager = connection_manager
+        self.engine = engine
+        # 通过 engine 获取 connection_manager
+        self.connection_manager = engine.get_connection_manager() if engine else None
         self.status = NodeStatus.PENDING
         self.name = config.get('name', node_id)
         self.description = config.get('description', '')
         
-        # 旧架构兼容：基于节点的输入
-        self._legacy_inputs: List[str] = config.get('inputs', [])
-        
-        # 新架构：根据类定义创建参数实例
+        # 根据类定义创建参数实例
         self.inputs: Dict[str, Parameter] = {}
         self.outputs: Dict[str, Parameter] = {}
         self._init_parameters()
@@ -347,32 +347,17 @@ class Node(ABC):
             raise ValueError(f"未知输入参数: {param_name}")
         return self.inputs[param_name].value
     
-    # 旧架构兼容方法
-    def get_input_data(self, context: WorkflowContext) -> Dict[str, Any]:
-        """
-        从上下文中获取输入数据（旧架构兼容）
-        
-        Args:
-            context: 工作流执行上下文
-            
-        Returns:
-            输入数据字典，key为输入节点ID，value为该节点的输出
-        """
-        input_data = {}
-        for input_node_id in self._legacy_inputs:
-            output = context.get_node_output(input_node_id)
-            input_data[input_node_id] = output
-        return input_data
     
     def resolve_config_params(self, context: WorkflowContext, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        解析配置中的参数引用，从上下文获取实际值
+        解析配置中的参数引用，使用 Jinja2 模板引擎渲染
         
-        支持的语法：
-        - ${node_id}: 引用整个节点输出
-        - ${node_id.field}: 引用节点输出的某个字段
-        - ${node_id.data.score}: 引用嵌套字段
-        - ${global.var_name}: 引用全局变量
+        支持的语法（Jinja2）：
+        - {{ nodes['node_id'] }}: 引用整个节点输出
+        - {{ nodes['node_id'].field }}: 引用节点输出的某个字段
+        - {{ nodes['node_id'].data.score }}: 引用嵌套字段
+        - {{ var_name }}: 引用全局变量（直接使用变量名）
+        - {{ get_node_output('node_id', 'field') }}: 使用辅助函数访问节点输出
         
         Args:
             context: 工作流执行上下文
@@ -382,8 +367,11 @@ class Node(ABC):
             解析后的配置字典
             
         Examples:
-            配置: {"score": "${start.score}", "threshold": 80}
+            配置: {"score": "{{ nodes['start'].data.score }}", "threshold": 80}
             解析后: {"score": 85, "threshold": 80}
+            
+            配置: {"url": "{{ base_url }}/api", "message": "Hello {{ user.name }}"}
+            解析后: {"url": "https://api.com/api", "message": "Hello World"}
         """
         if config is None:
             config = self.config
@@ -392,7 +380,7 @@ class Node(ABC):
     
     def _resolve_value(self, context: WorkflowContext, value: Any) -> Any:
         """
-        递归解析值中的参数引用
+        递归解析值中的参数引用，使用 Jinja2 模板引擎渲染
         
         Args:
             context: 工作流执行上下文
@@ -400,27 +388,33 @@ class Node(ABC):
             
         Returns:
             解析后的值
+            
+        Raises:
+            WorkflowException: 如果 Jinja2 环境未初始化或渲染失败
         """
-        import re
-        
         if isinstance(value, str):
-            # 匹配 ${...} 语法
-            pattern = r'\$\{([^}]+)\}'
-            matches = re.findall(pattern, value)
-            
-            if matches:
-                # 如果整个字符串就是一个引用，直接返回引用的值
-                if value == f'${{{matches[0]}}}' and len(matches) == 1:
-                    return self._get_reference_value(context, matches[0])
-                
-                # 否则进行字符串替换
-                result = value
-                for match in matches:
-                    ref_value = self._get_reference_value(context, match)
-                    # 将引用值转换为字符串进行替换
-                    result = result.replace(f'${{{match}}}', str(ref_value))
-                return result
-            
+            # 检查是否包含 Jinja2 语法标记
+            if '{{' in value or '{%' in value or '{#' in value:
+                # 使用 self.engine 的 render_template 方法渲染
+                try:
+                    rendered = self.engine.render_template(value)
+                    # 尝试将结果转换为合适的类型
+                    # 如果渲染后的字符串看起来像数字、布尔值或 null，尝试转换
+                    rendered = rendered.strip()
+                    if rendered.lower() == 'true':
+                        return True
+                    elif rendered.lower() == 'false':
+                        return False
+                    elif rendered.lower() == 'null' or rendered.lower() == 'none':
+                        return None
+                    elif rendered.isdigit():
+                        return int(rendered)
+                    elif rendered.replace('.', '', 1).isdigit():
+                        return float(rendered)
+                    return rendered
+                except Exception as e:
+                    raise WorkflowException(f"Jinja2 模板渲染失败: {str(e)}")
+            # 不包含 Jinja2 语法，直接返回
             return value
         
         elif isinstance(value, dict):
@@ -434,43 +428,6 @@ class Node(ABC):
         else:
             # 其他类型直接返回
             return value
-    
-    def _get_reference_value(self, context: WorkflowContext, reference: str) -> Any:
-        """
-        获取引用的实际值
-        
-        Args:
-            context: 工作流执行上下文
-            reference: 引用字符串，如 "node_id" 或 "node_id.field" 或 "global.var_name"
-            
-        Returns:
-            引用的值
-            
-        Raises:
-            ValueError: 引用格式错误或引用的值不存在
-        """
-        parts = reference.split('.', 1)
-        node_or_global = parts[0]
-        field = parts[1] if len(parts) > 1 else None
-        
-        # 处理全局变量引用
-        if node_or_global == 'global':
-            if field is None:
-                raise ValueError(f"全局变量引用必须指定变量名: global.var_name")
-            value = context.get_global_var(field)
-            if value is None:
-                raise ValueError(f"全局变量不存在: {field}")
-            return value
-        
-        # 处理节点输出引用
-        value = context.get_node_output(node_or_global, field)
-        if value is None:
-            if field:
-                raise ValueError(f"节点输出字段不存在: {node_or_global}.{field}")
-            else:
-                raise ValueError(f"节点输出不存在: {node_or_global}")
-        
-        return value
     
     def get_config(self, key: str = None, default: Any = None) -> Any:
         """
@@ -565,22 +522,6 @@ class Node(ABC):
             self.status = NodeStatus.FAILED
             context.log_error(f"节点执行失败: {self.node_id} - {str(e)}")
             raise NodeExecutionError(self.node_id, str(e), e)
-    
-    
-    def validate(self, context: WorkflowContext):
-        """
-        执行前验证（旧架构兼容，可选，子类可以重写）
-        
-        Args:
-            context: 工作流执行上下文
-        """
-        # 验证所有输入节点都已执行
-        for input_node_id in self._legacy_inputs:
-            if context.get_node_output(input_node_id) is None:
-                raise NodeExecutionError(
-                    self.node_id,
-                    f"输入节点 '{input_node_id}' 尚未执行或无输出"
-                )
     
     def __repr__(self):
         return f"<{self.__class__.__name__} id={self.node_id} status={self.status.value}>"
