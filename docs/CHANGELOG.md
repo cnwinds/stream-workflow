@@ -4,6 +4,71 @@
 
 ---
 
+## 版本 1.0.7 (2025-01-XX)
+
+### 🆕 新增功能
+
+**Jinja2 模板引擎集成**：
+- 完全集成 Jinja2 模板引擎，替换原有的 `${}` 语法
+- 在 `WorkflowEngine` 中提供 `render_template()` 公共接口，支持模板渲染
+- 在 `start()` 方法中自动初始化 Jinja2 环境并注入全局变量
+- 支持嵌套字典的点号访问（如 `{{ user.profile.user_name }}`）
+- 在节点配置解析中自动支持 Jinja2 语法
+
+**节点输出访问**：
+- 通过 `nodes['node_id']` 访问节点输出
+- 支持 `{{ nodes['node_id'].field }}` 语法访问嵌套字段
+- 提供 `get_node_output()` 辅助函数作为备选访问方式
+
+**全局变量增强**：
+- 全局变量直接注入到 Jinja2 环境，可直接使用变量名访问
+- 支持嵌套字典的全局变量，自动创建访问器支持点号访问
+- 在 `start()` 时通过 `initial_data` 参数注入初始全局变量
+
+### 🔧 架构改进
+
+**节点初始化优化**：
+- `Node.__init__()` 现在接收 `engine` 参数而不是 `connection_manager`
+- 节点通过 `self.engine` 访问引擎实例
+- 节点通过 `self.engine.get_connection_manager()` 获取连接管理器
+- 所有节点方法统一使用 `self.engine`，不再从 context 获取
+
+**代码清理**：
+- 完全移除 `${}` 语法解析逻辑
+- 移除 `_get_reference_value()` 方法
+- 简化节点配置解析流程
+
+### 📝 使用示例
+
+```python
+# 启动工作流时注入全局变量
+context = await engine.start(initial_data={
+    'user': {
+        'profile': {
+            'user_name': 'kity',
+            'age': 25
+        }
+    },
+    'base_url': 'https://api.example.com'
+})
+
+# 使用模板渲染接口
+result = engine.render_template("用户: {{ user.profile.user_name }}")
+# 结果: "用户: kity"
+
+# 在节点配置中使用 Jinja2
+config = {
+    "url": "{{ base_url }}/api/users",
+    "name": "{{ nodes['start'].data.name }}"
+}
+```
+
+### 📦 依赖更新
+
+- 新增 `Jinja2>=3.1.0` 依赖
+
+---
+
 ## 版本 1.0.3 (2025-01-XX)
 
 ### 🆕 新增功能
