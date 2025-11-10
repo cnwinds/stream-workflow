@@ -51,12 +51,70 @@ class WorkflowContext:
         return self._get_nested_value(output, field)
     
     def set_global_var(self, key: str, value: Any):
-        """设置全局变量"""
-        self._global_vars[key] = value
+        """
+        设置全局变量，支持点号分隔的嵌套键名
+        
+        Args:
+            key: 变量键名，支持点号分隔（如 "user.config" 或 "user.memory"）
+            value: 变量值
+            
+        Examples:
+            context.set_global_var('user.config', {'theme': 'dark'})
+            context.set_global_var('user.memory', 1024)
+            # 等同于：
+            # context._global_vars['user'] = {'config': {'theme': 'dark'}, 'memory': 1024}
+        """
+        if '.' not in key:
+            # 简单键名，直接设置
+            self._global_vars[key] = value
+        else:
+            # 点号分隔的键名，需要创建嵌套字典
+            parts = key.split('.')
+            current = self._global_vars
+            
+            # 遍历除最后一个部分外的所有部分，创建嵌套字典
+            for part in parts[:-1]:
+                if part not in current:
+                    current[part] = {}
+                elif not isinstance(current[part], dict):
+                    # 如果已存在但不是字典，则覆盖为字典
+                    current[part] = {}
+                current = current[part]
+            
+            # 设置最后一个部分的值
+            current[parts[-1]] = value
     
     def get_global_var(self, key: str, default: Any = None) -> Any:
-        """获取全局变量"""
-        return self._global_vars.get(key, default)
+        """
+        获取全局变量，支持点号分隔的嵌套键名
+        
+        Args:
+            key: 变量键名，支持点号分隔（如 "user.config" 或 "user.memory"）
+            default: 默认值，当键不存在时返回
+            
+        Returns:
+            变量值，如果不存在则返回默认值
+            
+        Examples:
+            config = context.get_global_var('user.config')
+            memory = context.get_global_var('user.memory', 0)
+        """
+        if '.' not in key:
+            # 简单键名，直接获取
+            return self._global_vars.get(key, default)
+        else:
+            # 点号分隔的键名，需要遍历嵌套字典
+            parts = key.split('.')
+            current = self._global_vars
+            
+            try:
+                for part in parts:
+                    if not isinstance(current, dict):
+                        return default
+                    current = current[part]
+                return current
+            except (KeyError, TypeError):
+                return default
 
     def _log(self, message: str, level):
         """记录日志"""
