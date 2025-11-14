@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stream-workflow"
-version = "1.0.8"
+version = "1.0.9"
 description = "一个类似n8n的Python工作流引擎框架"
 readme = "README.md"
 license = {text = "MIT"}

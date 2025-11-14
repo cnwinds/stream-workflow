@@ -4,6 +4,45 @@
 
 ---
 
+## 版本 1.0.9 (2025-01-XX)
+
+### 🆕 新增功能
+
+**Jinja2 模板递归解析**：
+- `render_template()` 方法现在支持递归解析变量
+- 如果渲染后的结果仍然包含 Jinja2 语法，会自动继续解析
+- 最多递归 10 次，防止无限循环
+- 智能检测渲染结果是否变化，无变化时自动停止
+
+### 🐛 问题修复
+
+**流式队列安全检查**：
+- 在 `feed_input_chunk()` 和 `close_input_stream()` 方法中添加了 `stream_queue` 的 None 检查
+- 如果队列未初始化，会抛出清晰的错误信息，而不是 `AttributeError`
+- 提高了错误信息的可读性和问题定位能力
+
+### 📝 使用示例
+
+```python
+# 递归解析示例
+context.set_global_var('base_url', '{{ api.host }}/v1')
+context.set_global_var('api.host', 'https://api.example.com')
+result = engine.render_template("{{ base_url }}")
+# 会自动递归解析，直到所有变量都被替换
+
+# 流式队列安全检查
+# 如果队列未初始化，会抛出清晰的错误：
+# ValueError: 流式参数 {param_name} 的队列未初始化。请确保节点已调用 initialize() 方法
+```
+
+### 🔧 技术改进
+
+- `render_template()` 方法增加了递归解析逻辑
+- 添加了最大迭代次数限制（10次）防止无限循环
+- 改进了错误处理，提供更清晰的错误信息
+
+---
+
 ## 版本 1.0.8 (2025-01-XX)
 
 ### 🆕 新增功能

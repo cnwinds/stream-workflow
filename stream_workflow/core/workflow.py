@@ -619,7 +619,7 @@ class WorkflowEngine:
     
     def render_template(self, template_str: str, **kwargs) -> str:
         """
-        使用 Jinja2 渲染模板字符串
+        使用 Jinja2 渲染模板字符串，支持递归解析变量
         
         Args:
             template_str: 模板字符串
@@ -634,16 +634,56 @@ class WorkflowEngine:
         Examples:
             result = engine.render_template("API地址: {{ base_url }}/users")
             result = engine.render_template("Hello {{ name }}", name="World")
+            
+        Note:
+            如果渲染后的结果仍然包含 Jinja2 语法（{{ }} 或 {% %}），
+            会自动递归解析，直到没有更多的模板语法为止（最多递归 10 次）
         """
         if self._jinja_env is None:
             raise WorkflowException("Jinja2 环境未初始化，请先调用 start() 方法")
         
+        max_iterations = 10  # 最大递归次数，防止无限循环
+        current_template = template_str
+        iteration = 0
+        
         try:
-            template = self._jinja_env.from_string(template_str)
             # 合并额外变量（kwargs 会覆盖全局变量中的同名变量）
             render_vars = dict(self._jinja_env.globals)
             render_vars.update(kwargs)
-            return template.render(**render_vars)
+            
+            # 递归解析，直到没有更多的模板语法
+            while iteration < max_iterations:
+                # 检查是否包含 Jinja2 语法
+                if '{{' not in current_template and '{%' not in current_template and '{#' not in current_template:
+                    # 没有模板语法，直接返回
+                    return current_template
+                
+                # 渲染模板
+                template = self._jinja_env.from_string(current_template)
+                rendered = template.render(**render_vars)
+                
+                # 如果渲染结果与输入相同，说明没有变化，停止递归
+                if rendered == current_template:
+                    return rendered
+                
+                # 更新当前模板为渲染结果，继续下一轮
+                current_template = rendered
+                iteration += 1
+            
+            # 如果达到最大迭代次数，返回最后一次渲染结果
+            if iteration >= max_iterations:
+                # 检查是否还有未解析的模板语法
+                if '{{' in current_template or '{%' in current_template or '{#' in current_template:
+                    # 警告：可能还有未解析的模板语法
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"模板递归解析达到最大次数 ({max_iterations})，"
+                        "可能仍有未解析的模板语法"
+                    )
+            
+            return current_template
+            
         except TemplateError as e:
             raise WorkflowException(f"Jinja2 模板渲染失败: {str(e)}")
         except Exception as e:

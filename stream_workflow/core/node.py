@@ -259,6 +259,13 @@ class Node(ABC):
         if not param.is_streaming:
             raise ValueError(f"参数 {param_name} 不是流式参数，请使用 set_input_value")
         
+        # 检查流式队列是否已初始化
+        if param.stream_queue is None:
+            raise ValueError(
+                f"流式参数 {param_name} 的队列未初始化。"
+                "请确保节点已调用 initialize() 方法"
+            )
+        
         # 创建并验证 StreamChunk
         chunk = StreamChunk(chunk_data, param.schema)
         
@@ -281,6 +288,13 @@ class Node(ABC):
         param = self.inputs[param_name]
         if not param.is_streaming:
             raise ValueError(f"参数 {param_name} 不是流式参数")
+        
+        # 检查流式队列是否已初始化
+        if param.stream_queue is None:
+            raise ValueError(
+                f"流式参数 {param_name} 的队列未初始化。"
+                "请确保节点已调用 initialize() 方法"
+            )
         
         # 发送结束信号
         await param.stream_queue.put(None)
