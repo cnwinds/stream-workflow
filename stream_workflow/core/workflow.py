@@ -302,19 +302,19 @@ class WorkflowEngine:
             for node_id, node in self._nodes.items():
                 if node.EXECUTION_MODE == 'streaming':
                     streaming_nodes.append(node_id)
-                    context.log_info(f"节点 {node_id} [流式模式]")
+                    context.log_debug(f"节点 {node_id} [流式模式]")
                 elif node.EXECUTION_MODE == 'hybrid':
                     self._sequential_nodes.append(node_id)
-                    context.log_info(f"节点 {node_id} [混合模式]")
+                    context.log_debug(f"节点 {node_id} [混合模式]")
                 else:  # sequential
                     self._sequential_nodes.append(node_id)
-                    context.log_info(f"节点 {node_id} [顺序模式]")
+                    context.log_debug(f"节点 {node_id} [顺序模式]")
             
             # 2. 初始化所有节点
             for node_id, node in self._nodes.items():
                 try:
                     await node.initialize(context)
-                    context.log_info(f"节点 {node_id} 初始化完成")
+                    context.log_debug(f"节点 {node_id} 初始化完成")
                 except Exception as e:
                     context.log_error(f"节点 {node_id} 初始化失败: {e}")
                     raise
@@ -331,9 +331,8 @@ class WorkflowEngine:
                     if param.is_streaming:
                         task = asyncio.create_task(node.consume_stream(param_name))
                         self._stream_tasks.append(task)
-                        context.log_info(f"启动流式消费: {node_id}.{param_name}")
+                        context.log_debug(f"启动流式消费: {node_id}.{param_name}")
 
-            context.log_info(f"Sequential/Hybrid 节点: {', '.join(self._sequential_nodes)}")
             context.log_info(f"工作流启动完成: {workflow_name}")
             
         except Exception as e:
