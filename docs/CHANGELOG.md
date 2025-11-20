@@ -4,6 +4,98 @@
 
 ---
 
+## 版本 1.0.11 (2025-01-XX)
+
+### 🆕 新增功能
+
+**配置参数定义系统**：
+- 新增 `CONFIG_PARAMS` 类属性，用于定义节点的配置参数结构
+- 支持在节点类中声明配置参数的 schema、是否必传和备注信息
+- 节点初始化时自动验证配置参数是否符合定义
+
+**ParameterSchema 增强**：
+- 新增 `required` 参数（默认 `False`），用于标记参数是否必传
+- 新增 `description` 参数（默认空字符串），用于添加参数备注说明
+- `validate_value()` 方法现在会检查必传参数是否提供
+
+### 📝 使用示例
+
+```python
+from stream_workflow.core import Node, ParameterSchema, register_node
+
+@register_node('http')
+class HttpNode(Node):
+    """HTTP请求节点"""
+    
+    # 定义配置参数
+    CONFIG_PARAMS = {
+        "url": ParameterSchema(
+            schema="string",
+            required=True,
+            description="请求的URL地址"
+        ),
+        "timeout": ParameterSchema(
+            schema="float",
+            required=False,
+            description="请求超时时间（秒），默认30秒"
+        ),
+        "method": ParameterSchema(
+            schema="string",
+            required=False,
+            description="HTTP方法，默认为GET"
+        )
+    }
+    
+    # 定义输入输出参数
+    INPUT_PARAMS = {
+        "request": ParameterSchema(
+            is_streaming=False,
+            schema={
+                "url": "string",
+                "method": "string"
+            },
+            required=False,
+            description="请求配置（可选）"
+        )
+    }
+    
+    OUTPUT_PARAMS = {
+        "response": ParameterSchema(
+            is_streaming=False,
+            schema={
+                "status_code": "integer",
+                "body": "dict"
+            },
+            required=False,
+            description="HTTP响应结果"
+        )
+    }
+    
+    async def run(self, context: WorkflowContext):
+        # 获取配置参数（已自动验证）
+        url = self.get_config('url')  # 必传参数，如果缺失会抛出异常
+        timeout = self.get_config('timeout', 30)  # 可选参数，有默认值
+        method = self.get_config('method', 'GET')
+        
+        # 执行HTTP请求...
+        pass
+```
+
+### 🔧 技术改进
+
+- `ParameterSchema.__init__()` 新增 `required` 和 `description` 参数
+- `ParameterSchema.validate_value()` 增加必传参数检查逻辑
+- `Node.__init__()` 新增 `_validate_config_params()` 方法，自动验证配置参数
+- 改进错误信息，包含参数描述信息，便于问题定位
+
+### ⚠️ 注意事项
+
+- 如果节点定义了 `CONFIG_PARAMS`，在创建节点时必须提供所有必传的配置参数
+- 配置参数的类型验证会在节点初始化时进行，提前发现配置错误
+- `required` 参数仅对配置参数有意义，输入输出参数使用连接系统管理
+
+---
+
 ## 版本 1.0.10 (2025-01-XX)
 
 ### 🔁 版本同步
