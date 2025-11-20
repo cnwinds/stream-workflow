@@ -3,7 +3,7 @@
 from .node import Node, NodeStatus, register_node, get_registered_nodes
 from .context import WorkflowContext
 from .workflow import WorkflowEngine
-from .parameter import Parameter, ParameterSchema, StreamChunk
+from .parameter import Parameter, ParameterSchema, StreamChunk, FieldSchema, FieldSchemaDef
 from .connection import Connection, ConnectionManager
 from .exceptions import (
     WorkflowException,
@@ -25,6 +25,8 @@ __all__ = [
     'Parameter',
     'ParameterSchema',
     'StreamChunk',
+    'FieldSchema',
+    'FieldSchemaDef',
     # 连接系统
     'Connection',
     'ConnectionManager',

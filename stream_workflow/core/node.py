@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .context import WorkflowContext
 from .exceptions import NodeExecutionError, WorkflowException
-from .parameter import Parameter, ParameterSchema, StreamChunk
+from .parameter import Parameter, ParameterSchema, StreamChunk, FieldSchema, FieldSchemaDef
 
 if TYPE_CHECKING:
     from .connection import ConnectionManager
@@ -65,6 +65,7 @@ class Node(ABC):
     
     新架构特性：
     - 支持多端口输入输出（通过 INPUT_PARAMS 和 OUTPUT_PARAMS 定义）
+    - 支持配置参数定义（通过 CONFIG_PARAMS 定义，使用 FieldSchema）
     - 支持异步执行（execute_async 方法）
     - 支持流式数据处理（emit_chunk 和 on_chunk_received 方法）
     - 支持混合执行模式（通过 EXECUTION_MODE 定义）
@@ -76,7 +77,7 @@ class Node(ABC):
     # 子类定义参数结构（类属性）
     INPUT_PARAMS: Dict[str, ParameterSchema] = {}
     OUTPUT_PARAMS: Dict[str, ParameterSchema] = {}
-    CONFIG_PARAMS: Dict[str, ParameterSchema] = {}  # 配置参数定义
+    CONFIG_PARAMS: Dict[str, FieldSchemaDef] = {}  # 配置参数定义（字段定义结构）
     
     def __init__(self, node_id: str, config: Dict[str, Any], 
                  engine: Optional['WorkflowEngine'] = None):
@@ -132,19 +133,10 @@ class Node(ABC):
         Raises:
             ValueError: 缺少必传配置参数或参数类型不匹配
         """
-        for param_name, schema in self.CONFIG_PARAMS.items():
-            value = self.config.get(param_name)
-            
-            # 验证参数值（如果提供了值）
-            # 对于字典类型的 schema，validate_value 会检查字段的 required 属性
-            if value is not None:
-                try:
-                    schema.validate_value(value)
-                except (ValueError, TypeError) as e:
-                    raise ValueError(
-                        f"节点 {self.node_id} 配置参数 {param_name} 验证失败: {str(e)}"
-                        + (f" ({schema.description})" if schema.description else "")
-                    )
+        for param_name, field_def in self.CONFIG_PARAMS.items():
+            # 使用 FieldSchema 类来处理字段定义的验证和默认值应用
+            field_schema = FieldSchema.from_def(field_def)
+            field_schema.validate_and_apply(self.config, param_name, self.node_id)
     
     # ===== 生命周期方法 =====
     

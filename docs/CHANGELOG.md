@@ -4,6 +4,85 @@
 
 ---
 
+## 版本 1.0.13 (2025-01-XX)
+
+### 🔧 代码重构
+
+**FieldSchema 类封装**：
+- 新增 `FieldSchema` 类，封装字段定义的解析、验证和默认值处理逻辑
+- 将字段定义相关的所有逻辑集中到 `FieldSchema` 类中，提高代码复用性
+- 支持简单格式（`"string"`）和详细格式（`{"type": "string", "required": True, ...}`）
+
+**ParameterSchema 重构**：
+- `ParameterSchema` 现在使用 `FieldSchema` 来管理字典类型 schema 中的字段定义
+- 移除了重复的 `_parse_field_definition()` 和 `_validate_simple_type()` 方法
+- 代码量减少约 40%，逻辑更清晰，维护更容易
+
+**CONFIG_PARAMS 类型优化**：
+- `CONFIG_PARAMS` 类型从 `Dict[str, ParameterSchema]` 改为 `Dict[str, FieldSchemaDef]`
+- 配置参数定义现在直接使用字段定义结构，与 `ParameterSchema` 中的字段定义保持一致
+- `Node._validate_config_params()` 方法简化，直接使用 `FieldSchema` 处理验证
+
+**代码优化**：
+- 提取共享的 `TYPE_MAP` 为模块级常量，避免重复定义
+- 统一字段定义的处理逻辑，`CONFIG_PARAMS` 和 `ParameterSchema` 使用相同的 `FieldSchema` 类
+- 符合 DRY（Don't Repeat Yourself）原则，提高代码质量
+
+### 📝 使用示例
+
+```python
+from stream_workflow.core import Node, FieldSchemaDef, register_node
+
+@register_node('http')
+class HttpNode(Node):
+    """HTTP请求节点"""
+    
+    # CONFIG_PARAMS 使用 FieldSchemaDef 类型（字段定义结构）
+    CONFIG_PARAMS = {
+        "url": "string",  # 简单格式
+        "timeout": {      # 详细格式
+            "type": "float",
+            "required": False,
+            "description": "请求超时时间（秒）",
+            "default": 30.0
+        }
+    }
+    
+    # INPUT_PARAMS 和 OUTPUT_PARAMS 使用 ParameterSchema
+    # 其中的字段定义也使用相同的 FieldSchema 逻辑处理
+    INPUT_PARAMS = {
+        "request": ParameterSchema(
+            is_streaming=False,
+            schema={
+                "url": {
+                    "type": "string",
+                    "required": True,
+                    "description": "请求URL"
+                },
+                "method": {
+                    "type": "string",
+                    "required": False,
+                    "default": "GET"
+                }
+            }
+        )
+    }
+```
+
+### ⚠️ 破坏性变更
+
+- `CONFIG_PARAMS` 的类型定义已更改，但使用方式保持不变（向后兼容）
+- 内部实现已重构，但对外 API 保持一致
+
+### 🔍 技术改进
+
+- 代码复用性提高：字段定义逻辑统一由 `FieldSchema` 处理
+- 可维护性提升：逻辑集中，修改更容易
+- 可测试性增强：`FieldSchema` 可独立测试
+- 代码简洁性：移除了约 60 行重复代码
+
+---
+
 ## 版本 1.0.12 (2025-01-XX)
 
 ### 🆕 新增功能
