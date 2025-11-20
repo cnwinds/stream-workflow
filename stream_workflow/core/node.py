@@ -76,6 +76,7 @@ class Node(ABC):
     # 子类定义参数结构（类属性）
     INPUT_PARAMS: Dict[str, ParameterSchema] = {}
     OUTPUT_PARAMS: Dict[str, ParameterSchema] = {}
+    CONFIG_PARAMS: Dict[str, ParameterSchema] = {}  # 配置参数定义
     
     def __init__(self, node_id: str, config: Dict[str, Any], 
                  engine: Optional['WorkflowEngine'] = None):
@@ -101,6 +102,9 @@ class Node(ABC):
         self.outputs: Dict[str, Parameter] = {}
         self._init_parameters()
         
+        # 验证配置参数
+        self._validate_config_params()
+        
         # 存储解析后的配置（在执行时填充）
         self.resolved_config: Dict[str, Any] = {}
     
@@ -120,6 +124,33 @@ class Node(ABC):
         for param in self.outputs.values():
             if param.is_streaming:
                 param.stream_queue = asyncio.Queue()
+    
+    def _validate_config_params(self):
+        """
+        验证配置参数是否符合 CONFIG_PARAMS 定义
+        
+        Raises:
+            ValueError: 缺少必传配置参数或参数类型不匹配
+        """
+        for param_name, schema in self.CONFIG_PARAMS.items():
+            value = self.config.get(param_name)
+            
+            # 检查必传参数
+            if schema.required and value is None:
+                raise ValueError(
+                    f"节点 {self.node_id} 缺少必传配置参数: {param_name}"
+                    + (f" ({schema.description})" if schema.description else "")
+                )
+            
+            # 验证参数值（如果提供了值）
+            if value is not None:
+                try:
+                    schema.validate_value(value)
+                except (ValueError, TypeError) as e:
+                    raise ValueError(
+                        f"节点 {self.node_id} 配置参数 {param_name} 验证失败: {str(e)}"
+                        + (f" ({schema.description})" if schema.description else "")
+                    )
     
     # ===== 生命周期方法 =====
     

@@ -7,7 +7,8 @@ from typing import Any, Dict, Union
 class ParameterSchema:
     """参数结构定义"""
     
-    def __init__(self, is_streaming: bool = False, schema: Union[str, dict] = None):
+    def __init__(self, is_streaming: bool = False, schema: Union[str, dict] = None, 
+                 required: bool = False, description: str = ""):
         """
         初始化参数 Schema
         
@@ -16,9 +17,13 @@ class ParameterSchema:
             schema: 参数结构定义
                     - 简单类型: "string", "integer", "float", "bytes", "boolean", "dict", "list", "any"
                     - 结构体: {"field_name": "type", ...}
+            required: 是否必传（默认 False）
+            description: 参数备注说明（默认空字符串）
         """
         self.is_streaming = is_streaming
         self.schema = schema or {}
+        self.required = required
+        self.description = description
     
     def validate_value(self, value: Any) -> bool:
         """
@@ -31,12 +36,18 @@ class ParameterSchema:
             验证通过返回 True
             
         Raises:
-            ValueError: schema 为字典时值不是字典，或缺少必需字段
+            ValueError: schema 为字典时值不是字典，或缺少必需字段，或必传参数未提供
             TypeError: 类型不匹配
         """
+        # 检查必传参数
+        if self.required and value is None:
+            raise ValueError(f"必传参数未提供")
+        
         if isinstance(self.schema, str):
             # 简单类型验证
-            return self._validate_simple_type(value, self.schema)
+            if value is not None:  # 非必传参数可能为 None
+                return self._validate_simple_type(value, self.schema)
+            return True
         
         if isinstance(self.schema, dict):
             # 字典结构验证
@@ -98,7 +109,7 @@ class ParameterSchema:
                 self.schema == other.schema)
     
     def __repr__(self):
-        return f"ParameterSchema(streaming={self.is_streaming}, schema={self.schema})"
+        return f"ParameterSchema(streaming={self.is_streaming}, schema={self.schema}, required={self.required}, description={self.description!r})"
     
     def __eq__(self, other):
         if not isinstance(other, ParameterSchema):
