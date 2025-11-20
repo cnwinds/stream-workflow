@@ -135,14 +135,8 @@ class Node(ABC):
         for param_name, schema in self.CONFIG_PARAMS.items():
             value = self.config.get(param_name)
             
-            # 检查必传参数
-            if schema.required and value is None:
-                raise ValueError(
-                    f"节点 {self.node_id} 缺少必传配置参数: {param_name}"
-                    + (f" ({schema.description})" if schema.description else "")
-                )
-            
             # 验证参数值（如果提供了值）
+            # 对于字典类型的 schema，validate_value 会检查字段的 required 属性
             if value is not None:
                 try:
                     schema.validate_value(value)

@@ -8,7 +8,7 @@ class ParameterSchema:
     """参数结构定义"""
     
     def __init__(self, is_streaming: bool = False, schema: Union[str, dict] = None, 
-                 required: bool = False, description: str = ""):
+                 description: str = ""):
         """
         初始化参数 Schema
         
@@ -16,13 +16,20 @@ class ParameterSchema:
             is_streaming: 是否为流式参数
             schema: 参数结构定义
                     - 简单类型: "string", "integer", "float", "bytes", "boolean", "dict", "list", "any"
-                    - 结构体: {"field_name": "type", ...}
-            required: 是否必传（默认 False）
+                    - 结构体（简单格式）: {"field_name": "type", ...}
+                    - 结构体（详细格式）: {
+                        "field_name": {
+                            "type": "string",
+                            "required": True,
+                            "description": "字段说明",
+                            "default": "默认值"
+                        },
+                        ...
+                      }
             description: 参数备注说明（默认空字符串）
         """
         self.is_streaming = is_streaming
         self.schema = schema or {}
-        self.required = required
         self.description = description
     
     def validate_value(self, value: Any) -> bool:
@@ -36,16 +43,12 @@ class ParameterSchema:
             验证通过返回 True
             
         Raises:
-            ValueError: schema 为字典时值不是字典，或缺少必需字段，或必传参数未提供
+            ValueError: schema 为字典时值不是字典，或缺少必需字段
             TypeError: 类型不匹配
         """
-        # 检查必传参数
-        if self.required and value is None:
-            raise ValueError(f"必传参数未提供")
-        
         if isinstance(self.schema, str):
             # 简单类型验证
-            if value is not None:  # 非必传参数可能为 None
+            if value is not None:  # 允许 None 值
                 return self._validate_simple_type(value, self.schema)
             return True
         
@@ -54,12 +57,61 @@ class ParameterSchema:
             if not isinstance(value, dict):
                 raise ValueError(f"期望字典类型，实际: {type(value).__name__}")
             
-            for field_name, field_type in self.schema.items():
+            for field_name, field_def in self.schema.items():
+                # 解析字段定义（支持简单格式和详细格式）
+                field_info = self._parse_field_definition(field_def)
+                field_type = field_info['type']
+                field_required = field_info['required']
+                field_description = field_info['description']
+                field_default = field_info['default']
+                
+                # 如果字段不存在，应用默认值（如果有）
                 if field_name not in value:
-                    raise ValueError(f"缺少必需字段: {field_name}")
-                self._validate_simple_type(value[field_name], field_type)
+                    if field_default is not None:
+                        value[field_name] = field_default
+                    elif field_required:
+                        # 检查必传字段
+                        error_msg = f"缺少必传字段: {field_name}"
+                        if field_description:
+                            error_msg += f" ({field_description})"
+                        raise ValueError(error_msg)
+                
+                # 如果字段存在，验证类型
+                if field_name in value:
+                    self._validate_simple_type(value[field_name], field_type)
         
         return True
+    
+    def _parse_field_definition(self, field_def: Union[str, dict]) -> Dict[str, Any]:
+        """
+        解析字段定义，支持两种格式：
+        1. 简单格式: "string" -> {"type": "string", "required": False, "description": "", "default": None}
+        2. 详细格式: {"type": "string", "required": True, "description": "说明", "default": "默认值"}
+        
+        Args:
+            field_def: 字段定义（字符串或字典）
+            
+        Returns:
+            包含 type、required、description、default 的字典
+        """
+        if isinstance(field_def, str):
+            # 简单格式：直接是类型字符串
+            return {
+                "type": field_def,
+                "required": False,
+                "description": "",
+                "default": None
+            }
+        elif isinstance(field_def, dict):
+            # 详细格式：包含 type、required、description、default
+            return {
+                "type": field_def.get("type", "any"),
+                "required": field_def.get("required", False),
+                "description": field_def.get("description", ""),
+                "default": field_def.get("default", None)
+            }
+        else:
+            raise ValueError(f"无效的字段定义格式: {field_def}")
     
     def _validate_simple_type(self, value: Any, type_str: str) -> bool:
         """
@@ -109,7 +161,7 @@ class ParameterSchema:
                 self.schema == other.schema)
     
     def __repr__(self):
-        return f"ParameterSchema(streaming={self.is_streaming}, schema={self.schema}, required={self.required}, description={self.description!r})"
+        return f"ParameterSchema(streaming={self.is_streaming}, schema={self.schema}, description={self.description!r})"
     
     def __eq__(self, other):
         if not isinstance(other, ParameterSchema):
