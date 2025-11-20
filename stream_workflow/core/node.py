@@ -3,11 +3,11 @@
 import asyncio
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from .context import WorkflowContext
 from .exceptions import NodeExecutionError, WorkflowException
-from .parameter import Parameter, ParameterSchema, StreamChunk, FieldSchema, FieldSchemaDef
+from .parameter import Parameter, ParameterSchema, StreamChunk, FieldSchema
 
 if TYPE_CHECKING:
     from .connection import ConnectionManager
@@ -77,7 +77,7 @@ class Node(ABC):
     # 子类定义参数结构（类属性）
     INPUT_PARAMS: Dict[str, ParameterSchema] = {}
     OUTPUT_PARAMS: Dict[str, ParameterSchema] = {}
-    CONFIG_PARAMS: Dict[str, FieldSchemaDef] = {}  # 配置参数定义（字段定义结构）
+    CONFIG_PARAMS: Dict[str, FieldSchema] = {}  # 配置参数定义（FieldSchema 实例）
     
     def __init__(self, node_id: str, config: Dict[str, Any], 
                  engine: Optional['WorkflowEngine'] = None):
@@ -133,9 +133,8 @@ class Node(ABC):
         Raises:
             ValueError: 缺少必传配置参数或参数类型不匹配
         """
-        for param_name, field_def in self.CONFIG_PARAMS.items():
-            # 使用 FieldSchema 类来处理字段定义的验证和默认值应用
-            field_schema = FieldSchema.from_def(field_def)
+        for param_name, field_schema in self.CONFIG_PARAMS.items():
+            # 直接使用 FieldSchema 实例进行验证
             field_schema.validate_and_apply(self.config, param_name, self.node_id)
     
     # ===== 生命周期方法 =====

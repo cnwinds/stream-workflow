@@ -4,6 +4,54 @@
 
 ---
 
+## 版本 1.0.14 (2025-01-XX)
+
+### 🔧 API 简化
+
+**CONFIG_PARAMS 类型明确化**：
+- `CONFIG_PARAMS` 类型从 `Dict[str, Union[FieldSchemaDef, FieldSchema]]` 简化为 `Dict[str, FieldSchema]`
+- 移除了对 `FieldSchemaDef`（原始定义格式）的兼容支持
+- 现在必须使用 `FieldSchema` 实例，类型更明确，代码更简洁
+
+**验证逻辑简化**：
+- `Node._validate_config_params()` 方法进一步简化
+- 移除了类型判断逻辑，直接使用 `FieldSchema` 实例进行验证
+- 代码更清晰，性能略有提升
+
+### ⚠️ 破坏性变更
+
+- `CONFIG_PARAMS` 现在必须使用 `FieldSchema` 实例，不再支持原始定义格式（字符串或字典）
+- 如果之前使用了原始定义格式，需要改为 `FieldSchema` 实例
+
+### 📝 使用示例
+
+```python
+from stream_workflow.core import Node, FieldSchema, register_node
+
+@register_node('http')
+class HttpNode(Node):
+    """HTTP请求节点"""
+    
+    # 必须使用 FieldSchema 实例
+    CONFIG_PARAMS = {
+        "url": FieldSchema("string"),  # 简单格式
+        "timeout": FieldSchema({       # 详细格式
+            "type": "float",
+            "required": False,
+            "description": "请求超时时间（秒）",
+            "default": 30.0
+        })
+    }
+```
+
+### 🔍 技术改进
+
+- 类型更明确：`CONFIG_PARAMS` 类型从 `Union` 简化为单一类型
+- 代码更简洁：移除了不必要的类型判断逻辑
+- 一致性更好：与 `INPUT_PARAMS` 和 `OUTPUT_PARAMS` 使用实例对象的方式保持一致
+
+---
+
 ## 版本 1.0.13 (2025-01-XX)
 
 ### 🔧 代码重构
