@@ -130,12 +130,26 @@ class Node(ABC):
         """
         验证配置参数是否符合 CONFIG_PARAMS 定义
         
+        配置参数可以在以下位置查找：
+        1. 顶层配置：self.config[param_name]
+        2. config 子字典：self.config['config'][param_name]
+        
         Raises:
             ValueError: 缺少必传配置参数或参数类型不匹配
         """
         for param_name, field_schema in self.CONFIG_PARAMS.items():
-            # 直接使用 FieldSchema 实例进行验证
-            field_schema.validate_and_apply(self.config, param_name, self.node_id)
+            # 先尝试在顶层配置中查找
+            value = self.config.get(param_name)
+            target_config = self.config
+            
+            # 如果顶层没有，尝试在 config 子字典中查找
+            if value is None:
+                config_dict = self.config.get('config')
+                if isinstance(config_dict, dict) and param_name in config_dict:
+                    target_config = config_dict
+            
+            # 在找到的配置字典中进行验证和应用
+            field_schema.validate_and_apply(target_config, param_name, self.node_id)
     
     # ===== 生命周期方法 =====
     

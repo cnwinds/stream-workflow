@@ -4,6 +4,61 @@
 
 ---
 
+## 版本 1.0.15 (2025-01-XX)
+
+### 🐛 问题修复
+
+**CONFIG_PARAMS 验证逻辑修复**：
+- 修复了 `Node._validate_config_params()` 方法，现在支持在 `config` 子字典中查找配置参数
+- 之前只在顶层配置中查找，导致配置在 `config` 子字典中的参数无法被正确验证
+- 现在会先在顶层查找，如果找不到，再在 `config` 子字典中查找
+
+**VariableNode 配置参数定义**：
+- 更新了 `variable_node` 的 `CONFIG_PARAMS` 定义
+- 将 `CONFIG_SCHEMA` 改为标准的 `CONFIG_PARAMS`，使用 `FieldSchema` 定义
+
+### 📝 使用示例
+
+```python
+# 配置参数可以在顶层或 config 子字典中
+workflow_config = {
+    'workflow': {
+        'nodes': [
+            {
+                'id': 'my_node',
+                'type': 'my_node_type',
+                'config': {
+                    'param1': 'value1',  # 在 config 子字典中
+                    'param2': 'value2'
+                }
+            }
+        ]
+    }
+}
+
+# 或者
+workflow_config = {
+    'workflow': {
+        'nodes': [
+            {
+                'id': 'my_node',
+                'type': 'my_node_type',
+                'param1': 'value1',  # 在顶层
+                'param2': 'value2'
+            }
+        ]
+    }
+}
+```
+
+### 🔍 技术改进
+
+- 验证逻辑更灵活：支持两种配置位置（顶层和 config 子字典）
+- 向后兼容：不影响现有在顶层配置的节点
+- 更符合实际使用场景：大多数节点配置都在 `config` 子字典中
+
+---
+
 ## 版本 1.0.14 (2025-01-XX)
 
 ### 🔧 API 简化
